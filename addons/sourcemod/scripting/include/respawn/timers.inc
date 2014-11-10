@@ -29,3 +29,33 @@ public Action:Timer_Credits(Handle:timer, any:client) {
   Client_PrintToChat(client, true, "For news and updates, join the official steam group at {G}http://steam.respawn.tf/{N}.");
 
 }
+
+// Checks to see if a player should be marked for death, then does so.
+public Action:Timer_Add_Mark(Handle:timer, any:client) {
+
+  client_mark_timer[client] = INVALID_HANDLE;
+
+  // If the player is no longer on the control point, disregard.
+  if (!client_on_point[client] || client_is_marked[client] || !IsValidClient(client)) {
+    return;
+  }
+
+  TF2_AddCondition(client, TFCond_MarkedForDeath);
+  client_is_marked[client] = true;
+
+}
+
+// Removes a player's death mark.
+public Action:Timer_Remove_Mark(Handle:timer, any:client) {
+
+  client_mark_timer[client] = INVALID_HANDLE;
+
+  // If the player is still on the control point, do not remove the mark.
+  if (!client_is_marked[client] || client_on_point[client] || !IsValidClient(client)) {
+    return;
+  }
+
+  TF2_RemoveCondition(client, TFCond_MarkedForDeath);
+  client_is_marked[client] = false;
+
+}

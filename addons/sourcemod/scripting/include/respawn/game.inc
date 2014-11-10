@@ -79,8 +79,10 @@ stock Game_ResetRoundState() {
 
   cap_owner = 0;
   for (new i = 0; i <= MaxClients; i++) {
-    last_class[i] = TFClass_Unknown;
-    point_last_touched[i] = -1;
+    client_last_class[i] = TFClass_Unknown;
+    client_is_marked[i] = false;
+    client_on_point[i] = false;
+    last_cap_time = GetGameTime();
   }
 
 }
@@ -101,6 +103,16 @@ stock Game_CountCapPoints() {
 
 }
 
+/**
+ * Returns the amount of time (in seconds) since a control point was last captured.
+ *
+ * @return                  Time since a control point was last captured.
+ */
+stock Game_TimeSinceLastCap() {
+
+  return GetGameTime() - last_cap_time;
+
+}
 
 /**
  * Modifies Control Point behavior for Arena: Respawn.

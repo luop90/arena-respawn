@@ -45,7 +45,10 @@ new Handle:cvar_force_arena = INVALID_HANDLE;
 
 new cap_owner = 0;
 new num_revived_players = 0;
-new point_last_touched[MAXPLAYERS+1] = { -1, ... };
+new Float:last_cap_time = 0.0;
+new bool:client_on_point[MAXPLAYERS+1] = { false, ... };
+new bool:client_is_marked[MAXPLAYERS+1] = { false, ... };
+new Handle:client_mark_timer[MAXPLAYERS+1] = { INVALID_HANDLE, ... };
 
 // Hide these cvar changes, as they're handled by the plugin itself.
 new String:quiet_cvars[][] = { "tf_arena_first_blood" };
@@ -63,7 +66,7 @@ new String:sound_friendly_cap[] = "mvm/mvm_revive.wav";
 new String:sound_enemy_cap[] = "misc/ks_tier_03_kill_01.wav";
 
 // Storage for the last played class of each player.
-new TFClassType:last_class[MAXPLAYERS+1] = { TFClass_Unknown, ... };
+new TFClassType:client_last_class[MAXPLAYERS+1] = { TFClass_Unknown, ... };
 
 // Load Respawn-specific functions
 #include <respawn>
@@ -115,6 +118,15 @@ public OnMapStart() {
 
 }
 
+// Handle cleanup on map end
+public OnMapEnd() {
+
+  for (new i = 1; i <= MaxClients; i++) {
+    client_mark_timer[i] = INVALID_HANDLE;
+  }
+
+}
+
 // Fired when a client connects to the server.
 public OnClientPostAdminCheck(client) {
 
@@ -125,7 +137,9 @@ public OnClientPostAdminCheck(client) {
 // Fired on a client leaving the server.
 public OnClientDisconnect_Post(client) {
 
-  last_class[client] = TFClass_Unknown;
+  client_last_class[client] = TFClass_Unknown;
+  client_on_point[client] = false;
+  client_is_marked[client] = false;
 
 }
 
@@ -177,6 +191,9 @@ public OnArenaStart(Handle:event, const String:name[], bool:hide_broadcast) {
 // Fired by a trigger_capture_area on team capture.
 public OnTeamCapture(const String:output[], caller, activator, Float:delay) {
 
+  // Set the last capture time.
+  last_cap_time = GetGameTime();
+
   // Determine the team that triggered this capture.
   new team = 0;
   if (StrEqual(output, "OnCapTeam1")) {
@@ -210,6 +227,14 @@ public OnTeamCapture(const String:output[], caller, activator, Float:delay) {
     }
   }
 
+  // Reset everyone's death marks.
+  for (new i = 1; i <= MaxClients; i++) {
+    if (IsValidClient(i) && client_is_marked[i]) {
+      TF2_RemoveCondition(i, TFCond_MarkedForDeath);
+      client_is_marked[i] = false;
+    }
+  }
+
 }
 
 public OnWin(const String:output[], caller, activator, Float:delay) {
@@ -231,13 +256,17 @@ public OnPointTouch(const String:output[], caller, activator, Float:delay) {
     return;
   }
 
+  // Set the state of the player to be touching or not touching the point.
+  if (StrEqual(output, "OnEndTouch")) {
+    client_on_point[activator] = false;
+  } else {
+    client_on_point[activator] = true;
+  }
+
   // Don't bother marking anyone for death if there's more than one point.
   if (Game_CountCapPoints() > 1) {
     return;
   }
-
-  // Always remove the MFD condition before potentially re-adding a new one.
-  TF2_RemoveCondition(activator, TFCond_MarkedForDeath);
 
   new control_point = CapArea_GetControlPoint(caller);
 
@@ -246,13 +275,23 @@ public OnPointTouch(const String:output[], caller, activator, Float:delay) {
     // Is the player a member of the team that owns this control point?
     if (GetClientTeam(activator) == Objective_GetPointOwner(GetEntProp(control_point, Prop_Data, "m_iPointIndex"))) {
 
-      // If so, and they're coming off of the point, give them a lingering two-second MFD effect.
-      if (StrEqual(output, "OnEndTouch")) {
-        TF2_AddCondition(activator, TFCond_MarkedForDeath, 2.0);
+      // Note: Always reset the timer state!
+      if (client_mark_timer[activator] != INVALID_HANDLE) {
+        KillTimer(client_mark_timer[activator]);
+        client_mark_timer[activator] = INVALID_HANDLE;
+      }
 
-      // Otherwise, mark them for death indefinitely. When they get off the point, this output will fire again.
+      // If so, and they've started touching the point, schedule a death mark.
+      if (client_on_point[activator]) {
+        new Float:time = (last_cap_time + 2.0) - GetGameTime();
+        if (time < 0.0) {
+          time = 0.0;
+        }
+        client_mark_timer[activator] = CreateTimer(time, Timer_Add_Mark, activator, TIMER_FLAG_NO_MAPCHANGE);
+
+      // Otherwise, schedule a death mark removal if they're coming off of the point.
       } else {
-        TF2_AddCondition(activator, TFCond_MarkedForDeath);
+        client_mark_timer[activator] = CreateTimer(2.0, Timer_Remove_Mark, activator, TIMER_FLAG_NO_MAPCHANGE);
       }
 
     }
@@ -302,8 +341,11 @@ public OnPointCaptured(Handle:event, const String:name[], bool:hide_broadcast) {
 
       if (Game_CountCapPoints() == 1) {
         // If this is the only point, mark the capturing players for death.
-        TF2_RemoveCondition(player, TFCond_MarkedForDeath);
-        TF2_AddCondition(player, TFCond_MarkedForDeath);
+        if (client_mark_timer[player] != INVALID_HANDLE) {
+          KillTimer(client_mark_timer[player]);
+          client_mark_timer[player] = INVALID_HANDLE;
+        }
+        client_mark_timer[player] = CreateTimer(2.0, Timer_Add_Mark, player, TIMER_FLAG_NO_MAPCHANGE);
       }
 
       // If this is 1v1, overheal the capturing player.
@@ -361,7 +403,7 @@ public OnPlayerDeath(Handle:event, const String:name[], bool:hide_broadcast) {
   }
 
   // Store information about the player's state for use upon respawn.
-  last_class[victim] = TF2_GetPlayerClass(victim);
+  client_last_class[victim] = TF2_GetPlayerClass(victim);
   for (new i = 0; i < sizeof(preserved_int_names); i++) {
     preserved_ints[victim][i] = GetEntProp(victim, Prop_Send, preserved_int_names[i]);
   }

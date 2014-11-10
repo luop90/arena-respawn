@@ -44,7 +44,7 @@ stock Player_RespawnWithEffects(player) {
 
   // Retrieve stored properties if the player is playing the same class they died with.
   new bool:restore = false;
-  if (TF2_GetPlayerClass(player) == last_class[player]) {
+  if (TF2_GetPlayerClass(player) == client_last_class[player]) {
     restore = true;
   }
   for (new i = 0; i < sizeof(preserved_int_names); i++) {
