@@ -29,7 +29,7 @@ public Plugin:myinfo = {
 
   name        = "Arena: Respawn",
   author      = "awk",
-  description = "A server mod for giving Arena second chances.",
+  description = "A gamemode that gives Arena second chances.",
   version     = PLUGIN_VERSION,
   url         = "http://steam.respawn.tf/"
 
