@@ -1,6 +1,6 @@
 arena_suijin_rc2
 arena_ravine
-arena_goldtooth_b2a
+arena_goldtooth_rc1
 arena_flourmill_b11
 arena_byre_b2
 arena_dropdown_rc1
