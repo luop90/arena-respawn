@@ -60,6 +60,18 @@ If set to `1`, replaces the Last Man Standing critboost with a minicrit boost.
 
 ## Extra stuff
 
+### Running a 5v5 Arena: Respawn tournament
+Due to a game bug, setting `mp_tournament 1` will disable all player spawns until both teams ready up and the match begins. For this reason, it is recommended to have two configuration files, one for the pre-tournament warmup mode and one for the tournament itself when both teams are effectively ready.
+
+Example configurations for both states can be found at [`preround_example.cfg`](cfg/preround_example.cfg) and [`tournament_example.cfg`](cfg/tournament_example.cfg).
+
+Class bans are recommended - before a map starts, both teams pick a single class to ban for the duration of play on that map. To enforce these bans, `tf_tournament_classlimit_CLASSNAME 0` can be set via rcon. For example, if one team banned Heavy, and the other banned Demoman, `tf_tournament_classlimit_heavy 0 ; tf_tournament_classlimit_demoman 0` would set the correct rules for the match.
+
+### Running an Arena: Respawn server alongside non-Arena maps
+You can enable Arena: Respawn on Arena maps only by adding lines to the following files:
+* Add `sm plugins unload arena_respawn` to `server.cfg`.
+* Add `sm plugins load arena_respawn` to `config_arena.cfg`.
+
 ### Custom map fixes
 
 Not all Arena maps are entirely plug-and-play. Some custom maps have made design decisions based on the rules of standard Arena that just don't work in *Arena: Respawn*, such as the train arriving late in Ferrous, the spawn doors shutting in Hardhat, or the point exploding and killing everyone in Blackwood Valley.
