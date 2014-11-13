@@ -46,11 +46,17 @@ How long to flash Uber on a newly respawned player.
 
 Number of active players required to enable First Blood (5 second critboost on the first kill in the round). Set to `0` to always enable First Blood or `-1` to always disable it.
 
-#### `ars_lms_minicrits`  
+#### `ars_lms_critboost`
 **Default value:** `8.0`  
-**Recommended tournament value:** `8.0`
+**Recommended tournament value:** `-1`
 
-How long (in seconds) a player death on the opposing team will grant the Last Man Standing a minicrit boost. Set to 8 seconds by default to match the minicrit boost time of the [Cleaner's Carbine](https://wiki.teamfortress.com/wiki/Cleaner's_Carbine) and [Crit-a-Cola](https://wiki.teamfortress.com/wiki/Crit-a-Cola).
+For the Last Man Standing, a death on the opposing team will result in a critboost for this many seconds. Set to 8 seconds by default to match a Kritz charge.
+
+#### `ars_lms_minicrits`  
+**Default value:** `0`  
+**Recommended tournament value:** `0`
+
+If set to `1`, replaces the Last Man Standing critboost with a minicrit boost.
 
 ## Extra stuff
 

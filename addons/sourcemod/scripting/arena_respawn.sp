@@ -17,7 +17,7 @@
 
 #pragma semicolon 1
 
-#define PLUGIN_VERSION "1.1.0"
+#define PLUGIN_VERSION "1.1.1"
 
 #include <sourcemod>
 #include <sdktools>
@@ -39,6 +39,7 @@ new Handle:cvar_first_blood = INVALID_HANDLE;
 new Handle:cvar_invuln_time = INVALID_HANDLE;
 new Handle:cvar_cap_time = INVALID_HANDLE;
 new Handle:cvar_first_blood_threshold = INVALID_HANDLE;
+new Handle:cvar_lms_critboost = INVALID_HANDLE;
 new Handle:cvar_lms_minicrits = INVALID_HANDLE;
 new Handle:cvar_logging = INVALID_HANDLE;
 new Handle:cvar_force_arena = INVALID_HANDLE;
@@ -104,8 +105,11 @@ public OnPluginStart() {
   cvar_first_blood_threshold = CreateConVar("ars_first_blood_threshold", "14",
     "Number of active players required to activate first blood (-1 to disable).");
 
-  cvar_lms_minicrits = CreateConVar("ars_lms_minicrits", "8.0",
-    "How many seconds of minicrits the Last Man Standing gets when a player on the opposing team dies or is killed.");
+  cvar_lms_critboost = CreateConVar("ars_lms_critboost", "8.0",
+    "How many seconds of crit boost the Last Man Standing gets when a player on the opposing team dies or is killed.");
+
+  cvar_lms_minicrits = CreateConVar("ars_lms_minicrits", "0",
+    "Set to 1 to turn the Last Man Standing critboost into minicrits instead.");
 
 }
 
@@ -413,11 +417,15 @@ public OnPlayerDeath(Handle:event, const String:name[], bool:hide_broadcast) {
 
   // If the opposing team has only one player remaining, grant that opposing player a five-second minicrit boost.
   new enemy_team = Team_EnemyTeam(team);
-  new Float:minicrit_time = GetConVarFloat(cvar_lms_minicrits);
-  if (minicrit_time > 0.0 && Team_CountAlivePlayers(enemy_team) == 1) {
+  new Float:critboost_time = GetConVarFloat(cvar_lms_critboost);
+  if (critboost_time > 0.0 && Team_CountAlivePlayers(enemy_team) == 1) {
     for (new i = 1; i <= MaxClients; i++) {
       if (IsValidClient(i) && IsPlayerAlive(i) && GetClientTeam(i) == enemy_team) {
-        TF2_AddCondition(i, TFCond_CritCola, minicrit_time);
+        if (GetConVarInt(cvar_lms_minicrits) > 0) {
+          TF2_AddCondition(i, TFCond_CritCola, critboost_time);
+        } else {
+          TF2_AddCondition(i, TFCond_Kritzkrieged, critboost_time);
+        }
       }
     }
   }
