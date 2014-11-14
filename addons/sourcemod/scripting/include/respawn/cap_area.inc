@@ -35,3 +35,43 @@ stock CapArea_GetControlPoint(cap_area) {
   return Entity_FindByName(control_point_name, "team_control_point");
 
 }
+
+/*
+ * Set the capture time of a trigger_capture_area and reflect changes on the HUD.
+ * A netural control point caps twice as slowly as an owned control point.
+ *
+ * @param cap_area        Index of the trigger_capture_area.
+ * @param force_shorter   Always set the shorter (non-netural) capture time.
+ * @noreturn
+ */
+stock CapArea_SetCaptureTime(cap_area, force_shorter = false) {
+
+  // Retrieve the game objective resource to reflect HUD changes.
+  new cap_objective = Game_GetObjective();
+
+  // Find the team_control_point associated with this trigger_capture_area.
+  new cap_point = CapArea_GetControlPoint(cap_area);
+
+  // Which control point is this? (can be 0-7)
+  new point_index = GetEntProp(cap_point, Prop_Data, "m_iPointIndex");
+
+  // Calculate point capture time based on the number of cap points.
+  new Float:cap_time = GetConVarFloat(cvar_cap_time) * Game_CountCapPoints() * Game_CountCapPoints();
+
+  // If the point is currently neutral, double the capture time.
+  if (!force_shorter && Objective_GetPointOwner(point_index) == 0) {
+    cap_time = cap_time * 2;
+  }
+
+  // Set point capture time.
+  Entity_SetKeyValueFloat(cap_area, "area_time_to_cap", cap_time);
+
+  // Disable team capture multipliers.
+  Entity_SetKeyValue(cap_area, "team_numcap_2", 1);
+  Entity_SetKeyValue(cap_area, "team_numcap_3", 1);
+
+  // Reflect the new capture time on clients' HUDs.
+  SetEntPropFloat(cap_objective, Prop_Data, "m_flTeamCapTime", cap_time * 2, _:TFTeam_Red  * 8 + point_index);
+  SetEntPropFloat(cap_objective, Prop_Data, "m_flTeamCapTime", cap_time * 2, _:TFTeam_Blue * 8 + point_index);
+
+}

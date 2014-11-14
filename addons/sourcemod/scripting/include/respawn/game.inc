@@ -136,32 +136,14 @@ stock Game_SetupCapPoints() {
     SetEntProp(cap_master, Prop_Data, "m_iInvalidCapWinner", 0);
   }
 
-  // Retrieve the game objective resource to reflect HUD changes.
-  new cap_objective = Game_GetObjective();
-
   new cap_area = -1;
   new cap_point;
   new point_index;
 
   while ((cap_area = FindEntityByClassname(cap_area, "trigger_capture_area")) != -1) {
 
-    // Set point capture time based on the number of cap points.
-    new Float:cap_time = GetConVarFloat(cvar_cap_time) * Game_CountCapPoints() * Game_CountCapPoints();
-    Entity_SetKeyValueFloat(cap_area, "area_time_to_cap", cap_time);
-
-    // Disable team capture multipliers.
-    Entity_SetKeyValue(cap_area, "team_numcap_2", 1);
-    Entity_SetKeyValue(cap_area, "team_numcap_3", 1);
-
-    // Find the team_control_point associated with this trigger_capture_area.
-    cap_point = CapArea_GetControlPoint(cap_area);
-
-    // Which control point is this? (can be 0-7)
-    point_index = GetEntProp(cap_point, Prop_Data, "m_iPointIndex");
-
-    // Reflect the new capture time on clients' HUDs.
-    SetEntPropFloat(cap_objective, Prop_Data, "m_flTeamCapTime", cap_time * 2, _:TFTeam_Red  * 8 + point_index);
-    SetEntPropFloat(cap_objective, Prop_Data, "m_flTeamCapTime", cap_time * 2, _:TFTeam_Blue * 8 + point_index);
+    // Set the capture time for this cap_area.
+    CapArea_SetCaptureTime(cap_area);
 
     // Find the exact position of the cap point.
     decl Float:position[3];
