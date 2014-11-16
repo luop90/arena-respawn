@@ -146,6 +146,7 @@ stock Game_SetupCapPoints() {
     CapArea_SetCaptureTime(cap_area);
 
     // Find the exact position of the cap point.
+    cap_point = CapArea_GetControlPoint(cap_area);
     decl Float:position[3];
     Entity_GetTrueAbsOrigin(cap_point, position);
 
@@ -155,6 +156,7 @@ stock Game_SetupCapPoints() {
 
     Log("Cap point targetname: %s", cap_point_name);
 
+    point_index = GetEntProp(cap_point, Prop_Data, "m_iPointIndex");
     if (StrEqual("", cap_point_name)) {
       Format(cap_point_name, sizeof(cap_point_name), "cap_point_%d", point_index);
       Entity_SetName(cap_point, cap_point_name);
