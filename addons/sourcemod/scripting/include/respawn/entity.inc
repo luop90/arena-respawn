@@ -55,6 +55,22 @@ stock Entity_SetKeyValueFloat(entity, const String:key[], Float:value) {
 }
 
 /**
+ * Sets an entity's internal keyvalue.
+ *
+ * @param entity           Entity index.
+ * @param key
+ * @param value
+ * @return                 True if successful, otherwise false.
+ */
+stock Entity_SetKeyValueString(entity, const String:key[], const String:value[]) {
+
+  new String:output[64];
+  Format(output, sizeof(output), "%s %s", key, value);
+  return Entity_AddOutput(entity, output);
+
+}
+
+/**
  * Finds the origin of an entity relative to the world.
  * Contrast with smlib's Entity_GetAbsOrigin, which only finds the origin relative to the entity's parent.
  *
@@ -72,6 +88,40 @@ stock Entity_GetTrueAbsOrigin(entity, Float:vector[3]) {
     decl Float:parent_vector[3];
     Entity_GetTrueAbsOrigin(parent, parent_vector);
     AddVectors(vector, parent_vector, vector);
+  }
+
+}
+
+/**
+ * Adds an entity output using a formatted string.
+ *
+ * @param entity           Entity index.
+ * @param output           Unformatted output string.
+ * @noreturn
+ */
+public Entity_AddFormattedOutput(ent, const String:output[], any:...) {
+
+  new String:output_string[512];
+  VFormat(output_string, sizeof(output_string), output, 3);
+
+  SetVariantString(output_string);
+  AcceptEntityInput(ent, "AddOutput");
+
+}
+
+/**
+ * Sends an input to all entities of the specified class.
+ *
+ * @param classname        Classname to search for.
+ * @param input            Input to send.
+ * @noreturn
+ */
+public Entity_AcceptInputAll(const String:classname[], const String:input[]) {
+
+  new ent = -1;
+  while ((ent = FindEntityByClassname(ent, classname)) != -1) {
+    AcceptEntityInput(ent, input);
+    Log("Sending input %s to entity %d", input, ent);
   }
 
 }

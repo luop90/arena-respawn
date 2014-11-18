@@ -55,12 +55,33 @@ stock CapArea_SetCaptureTime(cap_area, force_shorter = false) {
   // Which control point is this? (can be 0-7)
   new point_index = GetEntProp(cap_point, Prop_Data, "m_iPointIndex");
 
-  // Calculate point capture time based on the number of cap points.
-  new Float:cap_time = GetConVarFloat(cvar_cap_time) * Game_CountCapPoints() * Game_CountCapPoints();
+  // Get the base capture time.
+  new Float:cap_time = GetConVarFloat(cvar_cap_time);
 
-  // If the point is currently neutral, double the capture time.
-  if (!force_shorter && Objective_GetPointOwner(point_index) == 0) {
-    cap_time = cap_time * 2;
+  // "Regular" arena logic (up to 4 control points)
+  if (Game_CountCapPoints() < 5) {
+
+    // Calculate point capture time based on the number of cap points.
+    cap_time = cap_time * Game_CountCapPoints() * Game_CountCapPoints();
+
+    // If the point is currently neutral, double the capture time.
+    if (!force_shorter && Objective_GetPointOwner(point_index) == 0) {
+      cap_time = cap_time * 2;
+    }
+
+  // If we're here, we must be in a 5cp map!
+  } else {
+
+    // If this is the midpoint, make it slightly harder to cap than an Arena point.
+    if (point_index == mid_index) {
+      cap_time = cap_time * 1.5;
+
+    // Otherwise, make the point extremely hard to cap (for back-capping).
+    } else {
+      cap_time = cap_time * 5;
+
+    }
+
   }
 
   // Set point capture time.
@@ -73,5 +94,70 @@ stock CapArea_SetCaptureTime(cap_area, force_shorter = false) {
   // Reflect the new capture time on clients' HUDs.
   SetEntPropFloat(cap_objective, Prop_Data, "m_flTeamCapTime", cap_time * 2, _:TFTeam_Red  * 8 + point_index);
   SetEntPropFloat(cap_objective, Prop_Data, "m_flTeamCapTime", cap_time * 2, _:TFTeam_Blue * 8 + point_index);
+
+}
+
+/**
+ * Returns the entity index of the capture area associated with a point index.
+ *
+ * @param point_index     Point index (0-7).
+ * @return                Entity index of a trigger_capture_area, or -1 if none found.
+ */
+stock CapArea_FindByIndex(point_index) {
+
+  new cap_area = -1;
+  new cap_point = -1;
+  while ((cap_area = FindEntityByClassname(cap_area, "trigger_capture_area")) != -1) {
+    cap_point = CapArea_GetControlPoint(cap_area);
+    if (CapPoint_GetIndex(cap_point) == point_index) {
+      return cap_area;
+    }
+  }
+  return -1;
+
+}
+
+/**
+ * Gets or creates a name for the given trigger_capture_area.
+ *
+ * @param cap_area        Entity index of a trigger_capture_area.
+ * @param name            Reference to a string to pass the name into.
+ * @param len             Length of the given string.
+ */
+stock CapArea_GetName(cap_area, String:name[], len) {
+
+  Entity_GetName(cap_area, name, len);
+  if (StrEqual(name, "")) {
+    Format(name, len, "cap_area_%d", CapPoint_GetIndex(CapArea_GetControlPoint(cap_area)));
+    Entity_SetName(cap_area, name);
+  }
+
+}
+
+/**
+ * Locks a capture area.
+ *
+ * @param cap_area        Entity index of a trigger_capture_area.
+ */
+stock CapArea_Lock(cap_area) {
+
+  SetVariantString("2 0");
+  AcceptEntityInput(cap_area, "SetTeamCanCap");
+  SetVariantString("3 0");
+  AcceptEntityInput(cap_area, "SetTeamCanCap");
+
+}
+
+/**
+ * Unlocks a capture area.
+ *
+ * @param cap_area        Entity index of a trigger_capture_area.
+ */
+stock CapArea_Unlock(cap_area) {
+
+  SetVariantString("2 1");
+  AcceptEntityInput(cap_area, "SetTeamCanCap");
+  SetVariantString("3 1");
+  AcceptEntityInput(cap_area, "SetTeamCanCap");
 
 }

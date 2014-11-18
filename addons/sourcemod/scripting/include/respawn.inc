@@ -10,4 +10,5 @@
 #include <respawn/objective>
 #include <respawn/player>
 #include <respawn/cap_area>
+#include <respawn/cap_point>
 #include <respawn/timers>

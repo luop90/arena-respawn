@@ -17,7 +17,7 @@
 
 #pragma semicolon 1
 
-#define PLUGIN_VERSION "1.1.2"
+#define PLUGIN_VERSION "1.1.3-beta"
 
 #include <sourcemod>
 #include <sdktools>
@@ -45,6 +45,7 @@ new Handle:cvar_logging = INVALID_HANDLE;
 new Handle:cvar_force_arena = INVALID_HANDLE;
 
 new cap_owner = 0;
+new mid_index = -1;
 new num_revived_players = 0;
 new Float:last_cap_time = 0.0;
 new bool:client_on_point[MAXPLAYERS+1] = { false, ... };
@@ -154,6 +155,24 @@ public OnRoundStart(Handle:event, const String:name[], bool:hide_broadcast) {
     Game_ForceArenaMode();
   }
 
+  Game_ResetRoundState();
+
+  if (Game_CountCapPoints() == 5) {
+    mid_index = GetRandomInt(1,3);
+    Log("Chosen midpoint: %d", mid_index);
+    Game_SetupSpawns_FiveCp();
+    for (new i = 1; i <= MaxClients; i++) {
+      CreateTimer(0.01, RespawnPlayer, i);
+    }
+  }
+
+}
+
+// TODO: Move
+public Action:RespawnPlayer(Handle:timer, any:client) {
+  if (IsValidClient(client)) {
+    TF2_RespawnPlayer(client);
+  }
 }
 
 // Fired after the gates open in Arena.
@@ -161,8 +180,14 @@ public OnArenaStart(Handle:event, const String:name[], bool:hide_broadcast) {
 
   Game_RegeneratePlayers();
   Game_SetupCapPoints();
-  Game_ResetRoundState();
 
+  // Remove any in-map round timers.
+  new round_timer = -1;
+  while ((round_timer = FindEntityByClassname(round_timer, "team_round_timer")) != -1) {
+    AcceptEntityInput(round_timer, "Kill");
+  }
+
+  // If this is single-point arena, create a timer for doublecapping.
   if (Game_CountCapPoints() == 1) {
     Game_CreateCapTimer();
   }

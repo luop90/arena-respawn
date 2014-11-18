@@ -154,9 +154,7 @@ stock Game_SetupCapPoints() {
     new String:cap_point_name[64];
     Entity_GetName(cap_point, cap_point_name, sizeof(cap_point_name));
 
-    Log("Cap point targetname: %s", cap_point_name);
-
-    point_index = GetEntProp(cap_point, Prop_Data, "m_iPointIndex");
+    point_index = CapPoint_GetIndex(cap_point);
     if (StrEqual("", cap_point_name)) {
       Format(cap_point_name, sizeof(cap_point_name), "cap_point_%d", point_index);
       Entity_SetName(cap_point, cap_point_name);
@@ -202,13 +200,8 @@ stock Game_SetupCapPoints() {
       // Set entity outputs to fire the effect on the associated team capture.
       decl String:input[64];
 
-      Format(input, sizeof(input), "OnCapTeam%d %s:Stop::0:-1", team - 1, cap_effect_name);
-      SetVariantString(input);
-      AcceptEntityInput(cap_point, "AddOutput");
-
-      Format(input, sizeof(input), "OnCapTeam%d %s:Start::0.1:-1", team - 1, cap_effect_name);
-      SetVariantString(input);
-      AcceptEntityInput(cap_point, "AddOutput");
+      Entity_AddFormattedOutput(cap_point, "OnCapTeam%d %s:Stop::0:-1", team - 1, cap_effect_name);
+      Entity_AddFormattedOutput(cap_point, "OnCapTeam%d %s:Start::0.1:-1", team - 1, cap_effect_name);
 
       // If the game has two capture points, capturing one should reset the other.
       if (Game_CountCapPoints() == 2) {
@@ -233,6 +226,11 @@ stock Game_SetupCapPoints() {
 
     }
 
+  }
+
+  // Special 5cp logic.
+  if (Game_CountCapPoints() == 5) {
+    Game_SetupCapPoints_FiveCp();
   }
 
 }
@@ -349,5 +347,180 @@ stock Game_ForceArenaMode() {
     SetVariantInt(0);
     AcceptEntityInput(cap_point, "SetLocked");
   }
+
+}
+
+/**
+ * (Experimental) Set up spawns for 5cp play.
+ *
+ * @noreturn
+ */
+stock Game_SetupSpawns_FiveCp() {
+
+  // Create an array to store spawn entities.
+  new spawns[128] = { -1, ... };
+
+  // Current entity in search.
+  new spawn = -1;
+
+  // Current spawn number.
+  new spawn_counter = 0;
+
+  // Store all spawn entity indexes in an array.
+  while ((spawn = FindEntityByClassname(spawn, "info_player_teamspawn")) != -1) {
+    spawns[spawn_counter] = spawn;
+    spawn_counter++;
+  }
+
+  // Loop through the stored indexes.
+  for (new i = 0; i < sizeof(spawns); i++) {
+
+    spawn = spawns[i];
+
+    // If spawn is -1, we've hit the end of the loop.
+    if (spawn < 0) {
+      break;
+    }
+
+    // Which team is this spawnpoint associated with?
+    new team = GetEntProp(spawn, Prop_Data, "m_iInitialTeamNum");
+
+    // Determine if this spawn is valid for this round of 5cp.
+    decl String:associated_point[64];
+    GetEntPropString(spawn, Prop_Data, "m_iszControlPointName", associated_point, sizeof(associated_point));
+    decl String:point_name[8][64];
+    for (new p = 0; p < 5; p++) {
+      Entity_GetName(CapPoint_FindByIndex(p), point_name[p], 64);
+    }
+    if (mid_index == 2 && StrEqual(associated_point, point_name[2])
+      || mid_index == 1 && (
+        (team == _:TFTeam_Blue && StrEqual(associated_point, point_name[0]))
+        || (team == _:TFTeam_Red && StrEqual(associated_point, point_name[1])))
+      || mid_index == 3 && (
+        (team == _:TFTeam_Red && StrEqual(associated_point, point_name[4]))
+        || (team == _:TFTeam_Blue && StrEqual(associated_point, point_name[3])))) {
+
+      // Create a new spawnpoint to replace the old spawnpoint.
+      new new_spawn = CreateEntityByName("info_player_teamspawn");
+
+      // Set the new spawnpoint to the position of the old spawnpoint.
+      decl Float:pos[3];
+      Entity_GetAbsOrigin(spawn, pos);
+      Entity_SetAbsOrigin(new_spawn, pos);
+
+      // Rotate the new spawnpoint to match the old spawnpoint.
+      decl Float:angles[3];
+      Entity_GetAbsAngles(spawn, angles);
+      Entity_SetAbsAngles(new_spawn, angles);
+
+      // Associate the new spawnpoint with the same team as the old spawnpoint.
+      decl String:str[16];
+      Format(str, sizeof(str), "%d", team);
+      DispatchKeyValue(new_spawn, "TeamNum", str);
+
+      // Spawn the new info_player_teamspawn.
+      DispatchSpawn(new_spawn);
+      ActivateEntity(new_spawn);
+
+    }
+
+    // Kill the original spawn point.
+    AcceptEntityInput(spawn, "Kill");
+
+  }
+
+}
+
+/**
+ * (Experimental) Set up capture points for 5cp play.\
+ *
+ * @noreturn
+ */
+
+stock Game_SetupCapPoints_FiveCp() {
+
+  new cap_area = -1;
+  new cap_point;
+  new point_index;
+
+  while ((cap_area = FindEntityByClassname(cap_area, "trigger_capture_area")) != -1) {
+    cap_point = CapArea_GetControlPoint(cap_area);
+    point_index = CapPoint_GetIndex(cap_point);
+
+    if (point_index == mid_index) {
+      CapArea_Unlock(cap_area);
+    } else if (point_index == mid_index + 1) {
+      CapPoint_SetOwner(cap_point, _:TFTeam_Red);
+      CapArea_Lock(cap_area);
+    } else if (point_index == mid_index - 1) {
+      CapPoint_SetOwner(cap_point, _:TFTeam_Blue);
+      CapArea_Lock(cap_area);
+    } else {
+      CapArea_Lock(cap_area);
+    }
+
+    // 5cp point lock/unlock logic
+    for (new team = _:TFTeam_Red; team <= _:TFTeam_Blue; team++) {
+
+      // If this is mid, a successful capture by this team should open up the opposing team's last,
+      // and lock the last of the capturing team.
+      if (point_index == mid_index) {
+
+        new dir = 0;
+        if (team == _:TFTeam_Blue) {
+          dir = 1;
+        } else {
+          dir = -1;
+        }
+
+        new enemy_last_index = mid_index + dir;
+        new allied_last_index = mid_index - dir;
+
+        decl String:enemy_last_cap_area_name[64];
+        CapArea_GetName(CapArea_FindByIndex(enemy_last_index), enemy_last_cap_area_name, sizeof(enemy_last_cap_area_name));
+
+        decl String:allied_last_cap_area_name[64];
+        CapArea_GetName(CapArea_FindByIndex(allied_last_index), allied_last_cap_area_name, sizeof(allied_last_cap_area_name));
+
+        // Lock our last point.
+        Entity_AddFormattedOutput(cap_area, "OnCapTeam%d %s:SetTeamCanCap:%d 0:0:-1", team - 1, allied_last_cap_area_name, Team_EnemyTeam(team));
+
+        // Unlock enemy's last point.
+        Entity_AddFormattedOutput(cap_area, "OnCapTeam%d %s:SetTeamCanCap:%d 1:0:-1", team - 1, enemy_last_cap_area_name, team);
+
+      }
+
+      // Get the control point master.
+      decl String:cp_master_name[64];
+      Entity_GetName(FindEntityByClassname(-1, "team_control_point_master"), cp_master_name, sizeof(cp_master_name));
+      if (StrEqual(cp_master_name, "")) {
+        cp_master_name = "team_control_point_master";
+      }
+
+      // If this is BLU last, a capture by RED should win the game.
+      if (point_index == mid_index - 1 && team == _:TFTeam_Red) {
+        Entity_AddFormattedOutput(cap_area, "OnCapTeam%d %s:SetWinner:%d:0:-1", team - 1, cp_master_name, team);
+      }
+
+      // If this is RED last, a capture by BLU should win the game.
+      if (point_index == mid_index + 1 && team == _:TFTeam_Blue) {
+        Entity_AddFormattedOutput(cap_area, "OnCapTeam%d %s:SetWinner:%d:0:-1", team - 1, cp_master_name, team);
+      }
+
+    }
+
+  }
+
+  // Rerrange points on HUD to emphasize the 3 points in play.
+  if (mid_index == 2) {
+    SetVariantString("1 2 3,0 4");
+  } else if (mid_index == 1) {
+    SetVariantString("0 1 2,3 4");
+  } else if (mid_index == 3) {
+    SetVariantString("2 3 4,0 1");
+  } else {
+    SetVariantString("0 1 2 3 4");
+  }
+  AcceptEntityInput(FindEntityByClassname(-1, "team_control_point_master"), "SetCapLayout");
 
 }
