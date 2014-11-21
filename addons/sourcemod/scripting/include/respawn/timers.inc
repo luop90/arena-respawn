@@ -59,3 +59,13 @@ public Action:Timer_Remove_Mark(Handle:timer, any:client) {
   client_is_marked[client] = false;
 
 }
+
+// Forces a player to respawn, even if they are already alive.
+public Action:Timer_RespawnPlayer(Handle:timer, any:client) {
+
+  if (IsValidClient(client)) {
+
+    TF2_RespawnPlayer(client);
+  }
+
+}

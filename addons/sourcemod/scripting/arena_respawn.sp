@@ -36,6 +36,9 @@ public Plugin:myinfo = {
 }
 
 new Handle:cvar_first_blood = INVALID_HANDLE;
+new Handle:cvar_max_streak = INVALID_HANDLE;
+new Handle:cvar_cap_enable_time = INVALID_HANDLE;
+new Handle:cvar_caplinear = INVALID_HANDLE;
 new Handle:cvar_invuln_time = INVALID_HANDLE;
 new Handle:cvar_cap_time = INVALID_HANDLE;
 new Handle:cvar_first_blood_threshold = INVALID_HANDLE;
@@ -45,7 +48,7 @@ new Handle:cvar_logging = INVALID_HANDLE;
 new Handle:cvar_force_arena = INVALID_HANDLE;
 
 new cap_owner = 0;
-new mid_index = -1;
+new mid_index = 2;
 new num_revived_players = 0;
 new Float:last_cap_time = 0.0;
 new bool:client_on_point[MAXPLAYERS+1] = { false, ... };
@@ -53,7 +56,7 @@ new bool:client_is_marked[MAXPLAYERS+1] = { false, ... };
 new Handle:client_mark_timer[MAXPLAYERS+1] = { INVALID_HANDLE, ... };
 
 // Hide these cvar changes, as they're handled by the plugin itself.
-new String:quiet_cvars[][] = { "tf_arena_first_blood" };
+new String:quiet_cvars[][] = { "tf_arena_first_blood", "tf_arena_max_streak", "tf_caplinear" };
 
 // Preserve these variables across players' lives, but only if they're playing the same class.
 new String:preserved_int_names[][] = { "m_iKillStreak", "m_iDecapitations", "m_iRevengeCrits" };
@@ -90,6 +93,9 @@ public OnPluginStart() {
   HookEvent("player_death", OnPlayerDeath);
 
   cvar_first_blood = FindConVar("tf_arena_first_blood");
+  cvar_max_streak = FindConVar("tf_arena_max_streak");
+  cvar_cap_enable_time = FindConVar("tf_arena_override_cap_enable_time");
+  cvar_caplinear = FindConVar("tf_caplinear");
 
   cvar_logging = CreateConVar("ars_log_enabled", "1",
     "1 to enable status messages in the console, 0 to disable.");
@@ -116,6 +122,8 @@ public OnPluginStart() {
 
 // Fired on map load or on plugin load/reload.
 public OnMapStart() {
+
+  mid_index = 2;
 
   // Load sounds
   PrecacheSound(sound_friendly_cap);
@@ -157,22 +165,21 @@ public OnRoundStart(Handle:event, const String:name[], bool:hide_broadcast) {
 
   Game_ResetRoundState();
 
+  if (Game_CountCapPoints() > 1) {
+    SetConVarInt(cvar_cap_enable_time, -1);
+    SetConVarInt(cvar_caplinear, 0);
+  } else {
+    SetConVarInt(cvar_caplinear, 1);
+  }
+
   if (Game_CountCapPoints() == 5) {
-    mid_index = GetRandomInt(1,3);
     Log("Chosen midpoint: %d", mid_index);
     Game_SetupSpawns_FiveCp();
     for (new i = 1; i <= MaxClients; i++) {
-      CreateTimer(0.01, RespawnPlayer, i);
+      CreateTimer(0.01, Timer_RespawnPlayer, i);
     }
   }
 
-}
-
-// TODO: Move
-public Action:RespawnPlayer(Handle:timer, any:client) {
-  if (IsValidClient(client)) {
-    TF2_RespawnPlayer(client);
-  }
 }
 
 // Fired after the gates open in Arena.
@@ -181,16 +188,8 @@ public OnArenaStart(Handle:event, const String:name[], bool:hide_broadcast) {
   Game_RegeneratePlayers();
   Game_SetupCapPoints();
 
-  // Remove any in-map round timers.
-  new round_timer = -1;
-  while ((round_timer = FindEntityByClassname(round_timer, "team_round_timer")) != -1) {
-    AcceptEntityInput(round_timer, "Kill");
-  }
-
-  // If this is single-point arena, create a timer for doublecapping.
-  if (Game_CountCapPoints() == 1) {
-    Game_CreateCapTimer();
-  }
+  // Make our own round timer, if applicable.
+  Game_CreateCapTimer();
 
   // Clear all MFD in case anything is lingering (if a round suddenly restarted, for example).
   for (new i = 1; i <= MaxClients; i++) {
@@ -208,7 +207,7 @@ public OnArenaStart(Handle:event, const String:name[], bool:hide_broadcast) {
   if (num_players < 4) {
     SetConVarInt(cvar_first_blood, 0);
     Client_PrintToChatAll(false, "{G}1v1 rules active - capture the point for overheal!");
-  } else if (num_players < fb_threshold || fb_threshold == -1) {
+  } else if (num_players < fb_threshold || fb_threshold == -1 || Game_CountCapPoints() == 5) {
     SetConVarInt(cvar_first_blood, 0);
   } else {
     SetConVarInt(cvar_first_blood, 1);
@@ -270,6 +269,24 @@ public OnTeamCapture(const String:output[], caller, activator, Float:delay) {
 }
 
 public OnWin(const String:output[], caller, activator, Float:delay) {
+
+  if (Game_CountCapPoints() == 5) {
+
+    // Disable team scramble
+    SetConVarInt(cvar_max_streak, 0);
+
+    if (StrEqual(output, "OnWonByTeam1")) {
+      mid_index--;
+    } else if (StrEqual(output, "OnWonByTeam2")) {
+      mid_index++;
+    }
+    if (mid_index > 3 || mid_index < 1) {
+      mid_index = 2;
+
+      // Guarantee team scramble
+      SetConVarInt(cvar_max_streak, 1);
+    }
+  }
 
   Game_ResetRoundState();
 

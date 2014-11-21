@@ -78,7 +78,7 @@ stock CapArea_SetCaptureTime(cap_area, force_shorter = false) {
 
     // Otherwise, make the point extremely hard to cap (for back-capping).
     } else {
-      cap_time = cap_time * 5;
+      cap_time = cap_time * 7;
 
     }
 

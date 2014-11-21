@@ -243,6 +243,11 @@ stock Game_SetupCapPoints() {
  */
 stock Game_CreateCapTimer() {
 
+  // Games without a defined midpoint do not need a timer.
+  if (Game_CountCapPoints() > 1 && Game_CountCapPoints() < 5) {
+    return;
+  }
+
   new timer = Entity_FindByName("point_reset_timer", "team_round_timer");
   if (timer > 0) {
     Log("point_reset_timer already exists; refusing to re-create.");
@@ -258,13 +263,23 @@ stock Game_CreateCapTimer() {
   DispatchKeyValue(timer, "targetname", "point_reset_timer");
   DispatchKeyValue(timer, "StartDisabled", "1");
   DispatchKeyValue(timer, "show_in_hud", "1");
-  DispatchKeyValue(timer, "timer_length", "51");
   DispatchKeyValue(timer, "start_paused", "0");
   DispatchKeyValue(timer, "auto_countdown", "0");
 
+  if (Game_CountCapPoints() == 5) {
+    DispatchKeyValue(timer, "timer_length", "31");
+  } else {
+    DispatchKeyValue(timer, "timer_length", "51");
+  }
+
   DispatchSpawn(timer);
 
-  new cap_point = FindEntityByClassname(-1, "team_control_point");
+  new cap_point = -1;
+  if (Game_CountCapPoints() == 5) {
+    cap_point = CapPoint_FindByIndex(mid_index);
+  } else {
+    cap_point = FindEntityByClassname(cap_point, "team_control_point");
+  }
   new String:cap_point_name[64];
   Entity_GetName(cap_point, cap_point_name, sizeof(cap_point_name));
 
@@ -299,6 +314,27 @@ stock Game_CreateCapTimer() {
     Format(output_string, sizeof(output_string), "OnFinished %s:PlayVO:Announcer.AM_CapEnabledRandom:0:-1", gamerules_name);
     SetVariantString(output_string);
     AcceptEntityInput(timer, "AddOutput");
+
+    // In a 3cp game, the gamestate should reset alongside the midpoint.
+    if (Game_CountCapPoints() == 5) {
+
+      new blu_last = CapArea_FindByIndex(mid_index - 1);
+      new red_last = CapArea_FindByIndex(mid_index + 1);
+
+      decl String:blu_last_name[64];
+      decl String:red_last_name[64];
+
+      Entity_GetName(blu_last, blu_last_name, sizeof(blu_last_name));
+      Entity_GetName(red_last, red_last_name, sizeof(red_last_name));
+
+      Entity_AddFormattedOutput(timer, "OnFinished %s:Disable::0:-1", blu_last_name);
+      Entity_AddFormattedOutput(timer, "OnFinished %s:Disable::0:-1", red_last_name);
+
+      Entity_AddFormattedOutput(timer, "OnFinished %s:SetTeamCanCap:2 0:0:-1", blu_last_name);
+      Entity_AddFormattedOutput(timer, "OnFinished %s:SetTeamCanCap:3 0:0:-1", red_last_name);
+
+    }
+
   } else {
     Log("Could not find a tf_gamerules entity!");
   }
@@ -432,11 +468,10 @@ stock Game_SetupSpawns_FiveCp() {
 }
 
 /**
- * (Experimental) Set up capture points for 5cp play.\
+ * (Experimental) Set up capture points for 5cp play.
  *
  * @noreturn
  */
-
 stock Game_SetupCapPoints_FiveCp() {
 
   new cap_area = -1;
@@ -451,15 +486,25 @@ stock Game_SetupCapPoints_FiveCp() {
       CapArea_Unlock(cap_area);
     } else if (point_index == mid_index + 1) {
       CapPoint_SetOwner(cap_point, _:TFTeam_Red);
+      CapPoint_CreateDispenser(cap_point, _:TFTeam_Red, true);
       CapArea_Lock(cap_area);
     } else if (point_index == mid_index - 1) {
       CapPoint_SetOwner(cap_point, _:TFTeam_Blue);
+      CapPoint_CreateDispenser(cap_point, _:TFTeam_Blue, true);
       CapArea_Lock(cap_area);
+    } else if (point_index > mid_index + 1) {
+      CapPoint_SetOwner(cap_point, _:TFTeam_Red);
+      CapArea_Lock(cap_area);
+      AcceptEntityInput(cap_point, "HideModel");
+    } else if (point_index < mid_index - 1) {
+      CapPoint_SetOwner(cap_point, _:TFTeam_Blue);
+      CapArea_Lock(cap_area);
+      AcceptEntityInput(cap_point, "HideModel");
     } else {
       CapArea_Lock(cap_area);
     }
 
-    // 5cp point lock/unlock logic
+    // 3cp point logic
     for (new team = _:TFTeam_Red; team <= _:TFTeam_Blue; team++) {
 
       // If this is mid, a successful capture by this team should open up the opposing team's last,
@@ -484,9 +529,11 @@ stock Game_SetupCapPoints_FiveCp() {
 
         // Lock our last point.
         Entity_AddFormattedOutput(cap_area, "OnCapTeam%d %s:SetTeamCanCap:%d 0:0:-1", team - 1, allied_last_cap_area_name, Team_EnemyTeam(team));
+        Entity_AddFormattedOutput(cap_area, "OnCapTeam%d %s:Disable::0:-1", team - 1, allied_last_cap_area_name);
 
         // Unlock enemy's last point.
         Entity_AddFormattedOutput(cap_area, "OnCapTeam%d %s:SetTeamCanCap:%d 1:0:-1", team - 1, enemy_last_cap_area_name, team);
+        Entity_AddFormattedOutput(cap_area, "OnCapTeam%d %s:Enable::0:-1", team - 1, enemy_last_cap_area_name);
 
       }
 
@@ -510,17 +557,5 @@ stock Game_SetupCapPoints_FiveCp() {
     }
 
   }
-
-  // Rerrange points on HUD to emphasize the 3 points in play.
-  if (mid_index == 2) {
-    SetVariantString("1 2 3,0 4");
-  } else if (mid_index == 1) {
-    SetVariantString("0 1 2,3 4");
-  } else if (mid_index == 3) {
-    SetVariantString("2 3 4,0 1");
-  } else {
-    SetVariantString("0 1 2 3 4");
-  }
-  AcceptEntityInput(FindEntityByClassname(-1, "team_control_point_master"), "SetCapLayout");
 
 }
