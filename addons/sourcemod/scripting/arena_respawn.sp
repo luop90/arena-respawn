@@ -463,7 +463,7 @@ public OnPlayerDeath(Handle:event, const String:name[], bool:hide_broadcast) {
   // If the opposing team has only one player remaining, grant that opposing player a five-second minicrit boost.
   new enemy_team = Team_EnemyTeam(team);
   new Float:critboost_time = GetConVarFloat(cvar_lms_critboost);
-  if (critboost_time > 0.0 && Team_CountAlivePlayers(enemy_team) == 1) {
+  if (critboost_time > 0.0 && Team_CountAlivePlayers(enemy_team) == 1 && Team_CountAlivePlayers(team) > 2) {
     for (new i = 1; i <= MaxClients; i++) {
       if (IsValidClient(i) && IsPlayerAlive(i) && GetClientTeam(i) == enemy_team) {
         if (GetConVarInt(cvar_lms_minicrits) > 0) {
