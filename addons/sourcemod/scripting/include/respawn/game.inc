@@ -341,6 +341,85 @@ stock Game_CreateCapTimer() {
 
 }
 
+/*
+ * Makes all spawn doors on the map untriggerable.
+ *
+ * @noreturn
+ */
+stock Game_LockSpawnDoors() {
+
+  new filter = -1;
+  while ((filter = FindEntityByClassname(filter, "filter_activator_tfteam")) != -1) {
+    Entity_SetKeyValue(filter, "TeamNum", 0);
+    Entity_SetKeyValue(filter, "negated", 0);
+  }
+
+}
+
+/*
+ * Opens all standard spawn doors.
+ * Makes all non-standard spawn doors on the map triggerable by both teams.
+ *
+ * @noreturn
+ */
+stock Game_UnlockSpawnDoors() {
+
+  new filter = -1;
+  while ((filter = FindEntityByClassname(filter, "filter_activator_tfteam")) != -1) {
+    Entity_SetKeyValue(filter, "TeamNum", 0);
+    Entity_SetKeyValue(filter, "negated", 1);
+  }
+
+  // Find trigger_multiples that are likely to be spawn door triggers, and func_doors that
+  // are likely to be spawn doors.
+
+  new trigger = -1;
+  new door = -1;
+  new prop = -1;
+  new String:filter_name[64];
+
+  while ((trigger = FindEntityByClassname(trigger, "trigger_multiple")) != -1) {
+
+    GetEntPropString(trigger, Prop_Data, "m_iFilterName", filter_name, sizeof(filter_name));
+
+    // If this trigger_multiple has a team filter, it is likely to be a spawn door trigger.
+    if (!StrEqual(filter_name, "")) {
+
+      // To verify, loop through the func_doors and see if any are contained within the trigger.
+      door = -1;
+      while ((door = FindEntityByClassname(door, "func_door")) != -1) {
+
+        // If there is a func_door in the trigger, this is definitely a spawn door.
+        if (Entity_Intersect(door, trigger)) {
+
+          // Open the spawn door.
+          AcceptEntityInput(door, "Open");
+
+          // Disable the trigger_multiple to prevent it from closing the door.
+          AcceptEntityInput(trigger, "Disable");
+
+          // Search for any prop_dynamics also within the trigger bounds, and try to set an open animation.
+          // If none exists, this is harmless.
+          prop = -1;
+          while ((prop = FindEntityByClassname(prop, "prop_dynamic")) != -1) {
+
+            if (Entity_Intersect(prop, trigger)) {
+              SetVariantString("open");
+              AcceptEntityInput(prop, "SetAnimation");
+            }
+
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
+}
+
 /**
  * (Experimental) Attempt to force a map into being an Arena: Respawn map.
  * 

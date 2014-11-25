@@ -159,6 +159,8 @@ public OnClientDisconnect_Post(client) {
 // Fired on teamplay_round_start.
 public OnRoundStart(Handle:event, const String:name[], bool:hide_broadcast) {
 
+  Game_LockSpawnDoors();
+
   if (GetConVarInt(cvar_force_arena) > 0) {
     Game_ForceArenaMode();
   }
@@ -184,6 +186,8 @@ public OnRoundStart(Handle:event, const String:name[], bool:hide_broadcast) {
 
 // Fired after the gates open in Arena.
 public OnArenaStart(Handle:event, const String:name[], bool:hide_broadcast) {
+
+  Game_UnlockSpawnDoors();
 
   Game_RegeneratePlayers();
   Game_SetupCapPoints();

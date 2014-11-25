@@ -93,13 +93,52 @@ stock Entity_GetTrueAbsOrigin(entity, Float:vector[3]) {
 }
 
 /**
+ * Returns the entity's minimum coordinates relative to the world.
+ *
+ * @param entity           Entity index.
+ * @param vector           3 dimensional vector array.
+ * @noreturn
+ */
+stock Entity_GetAbsMinSize(entity, Float:vector[3]) {
+
+  decl Float:origin[3];
+  Entity_GetTrueAbsOrigin(entity, origin);
+
+  decl Float:relvec[3];
+  Entity_GetMinSize(entity, relvec);
+
+  AddVectors(origin, relvec, vector);
+
+}
+
+/**
+ * Returns the entity's maximum coordinates relative to the world.
+ *
+ * @param entity           Entity index.
+ * @param vector           3 dimensional vector array.
+ * @noreturn
+ */
+stock Entity_GetAbsMaxSize(entity, Float:vector[3]) {
+
+  decl Float:origin[3];
+  Entity_GetTrueAbsOrigin(entity, origin);
+
+  decl Float:relvec[3];
+  Entity_GetMaxSize(entity, relvec);
+
+  AddVectors(origin, relvec, vector);
+
+}
+
+
+/**
  * Adds an entity output using a formatted string.
  *
  * @param entity           Entity index.
  * @param output           Unformatted output string.
  * @noreturn
  */
-public Entity_AddFormattedOutput(ent, const String:output[], any:...) {
+stock Entity_AddFormattedOutput(ent, const String:output[], any:...) {
 
   new String:output_string[512];
   VFormat(output_string, sizeof(output_string), output, 3);
@@ -116,12 +155,38 @@ public Entity_AddFormattedOutput(ent, const String:output[], any:...) {
  * @param input            Input to send.
  * @noreturn
  */
-public Entity_AcceptInputAll(const String:classname[], const String:input[]) {
+stock Entity_AcceptInputAll(const String:classname[], const String:input[]) {
 
   new ent = -1;
   while ((ent = FindEntityByClassname(ent, classname)) != -1) {
     AcceptEntityInput(ent, input);
     Log("Sending input %s to entity %d", input, ent);
   }
+
+}
+
+/**
+ * Checks if the bounding boxes of two entities intersect.
+ *
+ * @return                 True if the entities intersect.
+ */
+stock Entity_Intersect(ent1, ent2) {
+
+  new Float:abs_min1[3], Float:abs_min2[3], Float:abs_max1[3], Float:abs_max2[3];
+
+  Entity_GetAbsMinSize(ent1, abs_min1);
+  Entity_GetAbsMaxSize(ent1, abs_max1);
+  Entity_GetAbsMinSize(ent2, abs_min2);
+  Entity_GetAbsMaxSize(ent2, abs_max2);
+
+  if( abs_min1[0] > abs_max2[0] ||
+      abs_min1[1] > abs_max2[1] ||
+      abs_min1[2] > abs_max2[2] ||
+      abs_max1[0] < abs_min2[0] ||
+      abs_max1[1] < abs_min2[1] ||
+      abs_max1[2] < abs_min2[2] )
+      return false;
+
+  return true;
 
 }
