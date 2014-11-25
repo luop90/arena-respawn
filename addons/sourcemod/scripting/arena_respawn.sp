@@ -204,10 +204,10 @@ public OnArenaStart(Handle:event, const String:name[], bool:hide_broadcast) {
 
   new fb_threshold = GetConVarInt(cvar_first_blood_threshold);
 
-  if (num_players < 4) {
+  if (num_players < 6) {
     SetConVarInt(cvar_first_blood, 0);
-    Client_PrintToChatAll(false, "{G}1v1 rules active - capture the point for overheal!");
-  } else if (num_players < fb_threshold || fb_threshold == -1 || Game_CountCapPoints() == 5) {
+    Client_PrintToChatAll(false, "{G}Small match rules active - capture the point for overheal!");
+  } else if (num_players < fb_threshold || fb_threshold == -1 || Game_CountCapPoints() > 1) {
     SetConVarInt(cvar_first_blood, 0);
   } else {
     SetConVarInt(cvar_first_blood, 1);
@@ -398,7 +398,7 @@ public OnPointCaptured(Handle:event, const String:name[], bool:hide_broadcast) {
       }
 
       // If this is 1v1, overheal the capturing player.
-      if (Game_CountActivePlayers() < 4) {
+      if (Game_CountActivePlayers() < 6) {
         new Float:health = float(Entity_GetMaxHealth(player));
         Entity_SetHealth(player, RoundToFloor(health * 1.5), true);
       }
