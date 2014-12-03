@@ -40,4 +40,3 @@ koth_occult_rc3
 koth_peaks_b6a
 koth_watermill_final
 koth_twinfalls
-
