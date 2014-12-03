@@ -37,6 +37,7 @@ koth_highpass_b2
 koth_canopy_b3a
 koth_coalplant_b7
 koth_occult_rc3
+koth_peaks_b6a
 koth_watermill_final
 koth_twinfalls
 
