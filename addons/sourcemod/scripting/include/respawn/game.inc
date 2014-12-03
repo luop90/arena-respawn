@@ -565,18 +565,18 @@ stock Game_SetupCapPoints_FiveCp() {
       CapArea_Unlock(cap_area);
     } else if (point_index == mid_index + 1) {
       CapPoint_SetOwner(cap_point, _:TFTeam_Red);
-      CapPoint_CreateDispenser(cap_point, _:TFTeam_Red, true);
+      //CapPoint_CreateDispenser(cap_point, _:TFTeam_Red, true);
       CapArea_Lock(cap_area);
     } else if (point_index == mid_index - 1) {
       CapPoint_SetOwner(cap_point, _:TFTeam_Blue);
-      CapPoint_CreateDispenser(cap_point, _:TFTeam_Blue, true);
+      //CapPoint_CreateDispenser(cap_point, _:TFTeam_Blue, true);
       CapArea_Lock(cap_area);
     } else if (point_index > mid_index + 1) {
-      CapPoint_SetOwner(cap_point, _:TFTeam_Red);
+      //CapPoint_SetOwner(cap_point, _:TFTeam_Red);
       CapArea_Lock(cap_area);
       AcceptEntityInput(cap_point, "HideModel");
     } else if (point_index < mid_index - 1) {
-      CapPoint_SetOwner(cap_point, _:TFTeam_Blue);
+      //CapPoint_SetOwner(cap_point, _:TFTeam_Blue);
       CapArea_Lock(cap_area);
       AcceptEntityInput(cap_point, "HideModel");
     } else {

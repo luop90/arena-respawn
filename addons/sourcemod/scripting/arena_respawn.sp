@@ -17,7 +17,7 @@
 
 #pragma semicolon 1
 
-#define PLUGIN_VERSION "1.1.3-beta"
+#define PLUGIN_VERSION "1.1.3"
 
 #include <sourcemod>
 #include <sdktools>
@@ -36,7 +36,6 @@ public Plugin:myinfo = {
 }
 
 new Handle:cvar_first_blood = INVALID_HANDLE;
-new Handle:cvar_max_streak = INVALID_HANDLE;
 new Handle:cvar_cap_enable_time = INVALID_HANDLE;
 new Handle:cvar_caplinear = INVALID_HANDLE;
 new Handle:cvar_invuln_time = INVALID_HANDLE;
@@ -93,7 +92,6 @@ public OnPluginStart() {
   HookEvent("player_death", OnPlayerDeath);
 
   cvar_first_blood = FindConVar("tf_arena_first_blood");
-  cvar_max_streak = FindConVar("tf_arena_max_streak");
   cvar_cap_enable_time = FindConVar("tf_arena_override_cap_enable_time");
   cvar_caplinear = FindConVar("tf_caplinear");
 
@@ -188,7 +186,6 @@ public OnRoundStart(Handle:event, const String:name[], bool:hide_broadcast) {
 public OnArenaStart(Handle:event, const String:name[], bool:hide_broadcast) {
 
   Game_UnlockSpawnDoors();
-
   Game_RegeneratePlayers();
   Game_SetupCapPoints();
 
@@ -273,24 +270,6 @@ public OnTeamCapture(const String:output[], caller, activator, Float:delay) {
 }
 
 public OnWin(const String:output[], caller, activator, Float:delay) {
-
-  if (Game_CountCapPoints() == 5) {
-
-    // Disable team scramble
-    SetConVarInt(cvar_max_streak, 0);
-
-    if (StrEqual(output, "OnWonByTeam1")) {
-      mid_index--;
-    } else if (StrEqual(output, "OnWonByTeam2")) {
-      mid_index++;
-    }
-    if (mid_index > 3 || mid_index < 1) {
-      mid_index = 2;
-
-      // Guarantee team scramble
-      SetConVarInt(cvar_max_streak, 1);
-    }
-  }
 
   Game_ResetRoundState();
 
