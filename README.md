@@ -1,10 +1,8 @@
-<p align="center"><a href="http://steam.respawn.tf/"><img src="https://raw.githubusercontent.com/winlosecontinue/arena-respawn/master/media/arena_respawn_brand_steam_group.png" width="400px" /></a></p>
-
-# Arena: Respawn
+<p align="center"><img src="https://raw.githubusercontent.com/awkisopen/arena-respawn/master/media/arena_respawn_brand_512.png" alt="Arena: Respawn" width="350px" /><br /><h2 align="center"><a href="http://steamcommunity.com/groups/ArenaRespawn">Steam Group</a> &bull; <a href="http://wiki.respawn.tf">Wiki</a> &bull; <a href ="https://github.com/awkisopen/arena-respawn/raw/master/addons/sourcemod/plugins/arena_respawn.smx">Plugin Download</a></h2></p>
 
 *Arena: Respawn* is a custom gamemode for [Team Fortress 2](http://www.teamfortress.com). Like Arena mode, *Arena: Respawn* has no respawn timers. Unlike Arena mode, players can be respawned mid-round if a teammate captures the central control point.
 
-This simple rule change has led to a ton of interesting gameplay, as mentioned in the [Official Team Fortress 2 blog](http://www.teamfortress.com/post.php?id=14487). If you'd like to try it out before installing, hop into a [server near you](http://steam.respawn.tf) and give it a spin.
+This simple rule change has proven to be an interesting change to the Arena gamemode, as mentioned in the [Official Team Fortress 2 blog](http://www.teamfortress.com/post.php?id=14487). If you'd like to try it out before installing, hop into a [server near you](http://steam.respawn.tf) and give it a spin.
 
 ## Use and installation
 
@@ -21,12 +19,6 @@ That's it! *Arena: Respawn* will automatically replace Arena mode. If you're int
 ### Configuration
 
 *Arena: Respawn* comes with a bunch of configuration variables that you can set in your server's `server.cfg`. They're automatically set to sensible defaults, so you don't have to set these unless you want something other than the gamemode's default behavior.
-
-#### `ars_force_arena`
-**Default value:** `0`  
-**Recommended tournament value:** `0`
-
-If set to `1`, *Arena: Respawn* will try to treat every map as an Arena map. This can be useful for testing out maps that haven't been converted to Arena yet, but is too buggy and silly for regular play.
 
 #### `ars_cap_time`
 **Default value:** `1.0`  
@@ -78,10 +70,18 @@ Not all Arena maps are entirely plug-and-play. Some custom maps have made design
 
 Fortunately, the excellent [Stripper: Source](http://www.bailopan.net/stripper/) tool allows you to apply on-the-fly custom map fixes as the map loads. Install Stripper: Source and copy the [appropriate files](addons/stripper/maps) into your `addons/stripper/maps` directory.
 
-**Note:** We have deliberately avoided working these special, per-map cases into the plugin (and will not accept merge requests that do so) for the following reasons:
+**Note:** I have deliberately avoided working these special, per-map cases into the plugin (and will not accept merge requests that do so) for the following reasons:
 - While all per-map problems can be eventually be solved by SourceMod, this often involves tearing out elements of the map to do so. The Stripper: Source configuration files leave the map alone and modify its *functionality* instead of playing butcher to the hard work of a mapper.
 - Stripper syntax is closely related to entity keyvalue data, which most mappers are familiar with. This allows a mapper to write their own *Arena: Respawn* modifications without having to learn an extra tool in the process.
 - Large amounts of special case code are not just bad practice, but downright nightmarish to maintain.
+
+### Using King of the Hill maps as Arena maps
+
+*Arena: Respawn* is also designed to function on King of the Hill maps, but additional Stripper configuration is required to do so.
+
+If you would like to run a King of the Hill map, copy or symlink [koth.cfg](addons/stripper/maps/koth.cfg) to a filename corresponding with the map you wish to use. For example, on a \*nix system, `ln -s koth_king.cfg koth.cfg` would create a symlink at `koth_king.cfg`, loading the special KOTH Stripper rules the next time `koth_king` is played.
+
+Aside from this slightly manual configuration, everything else about the KOTH conversion is handled inside the plugin, including a full conversion of each spawn area to an Arena-style spawn.
 
 ### Compiling the plugin yourself
 
@@ -93,4 +93,4 @@ If you create a modified version of *Arena: Respawn* to run on a public server, 
 
 ### Arena class tweaks
 
-The "IT'S ALIVE!" October update of *Arena: Respawn* introduced a series of class-specific mechanics, such as a global sentry damage reduction and tying Medics' heal rate to damage done. These are will be available in a separate, standalone plugin, as they can be applied to *Arena: Respawn* and standard Arena alike.
+The "IT'S ALIVE!" October update of *Arena: Respawn* introduced a series of class-specific mechanics, such as a global sentry damage reduction and disabling critical healing. These are will be available in a separate, standalone plugin, as they can be applied to *Arena: Respawn* and standard Arena alike.
