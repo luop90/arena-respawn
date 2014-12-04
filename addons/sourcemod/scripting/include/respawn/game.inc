@@ -421,51 +421,6 @@ stock Game_UnlockSpawnDoors() {
 }
 
 /**
- * (Experimental) Attempt to force a map into being an Arena: Respawn map.
- * 
- * @noreturn
- */
-stock Game_ForceArenaMode() {
-
-  new String:remove_entities[][] = {
-    "team_round_timer",
-    "func_regenerate",
-    "tf_logic_koth",
-    "func_respawnroomvisualizer"
-  };
-
-  for (new i = 0; i < sizeof(remove_entities); i++) {
-    new entity = -1;
-    while ((entity = FindEntityByClassname(entity, remove_entities[i])) != -1) {
-      AcceptEntityInput(entity, "Disable");
-      AcceptEntityInput(entity, "Kill");
-    }
-  }
-
-  new door = -1;
-  while ((door = FindEntityByClassname(door, "func_door")) != -1) {
-    AcceptEntityInput(door, "Open");
-  }
-
-  new arena_logic = FindEntityByClassname(-1, "tf_logic_arena");
-  if (arena_logic < 0) {
-    arena_logic = CreateEntityByName("tf_logic_arena");
-    ActivateEntity(arena_logic);
-    DispatchSpawn(arena_logic);
-    AcceptEntityInput(arena_logic, "Enable");
-  }
-
-  new cap_point = -1;
-  while ((cap_point = FindEntityByClassname(cap_point, "team_control_point")) != -1) {
-    SetVariantInt(0);
-    AcceptEntityInput(cap_point, "SetOwner");
-    SetVariantInt(0);
-    AcceptEntityInput(cap_point, "SetLocked");
-  }
-
-}
-
-/**
  * (Experimental) Set up spawns for 5cp play.
  *
  * @noreturn

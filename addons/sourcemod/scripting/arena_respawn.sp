@@ -44,7 +44,6 @@ new Handle:cvar_first_blood_threshold = INVALID_HANDLE;
 new Handle:cvar_lms_critboost = INVALID_HANDLE;
 new Handle:cvar_lms_minicrits = INVALID_HANDLE;
 new Handle:cvar_logging = INVALID_HANDLE;
-new Handle:cvar_force_arena = INVALID_HANDLE;
 
 new cap_owner = 0;
 new mid_index = 2;
@@ -97,9 +96,6 @@ public OnPluginStart() {
 
   cvar_logging = CreateConVar("ars_log_enabled", "1",
     "1 to enable status messages in the console, 0 to disable.");
-
-  cvar_force_arena = CreateConVar("ars_force_arena", "0",
-    "(Experimental) Set to 1 to attempt to force any map into Arena mode.");
 
   cvar_invuln_time = CreateConVar("ars_invuln_time", "3.0",
     "How long to flash Uber on a newly respawned player.");
@@ -158,10 +154,6 @@ public OnClientDisconnect_Post(client) {
 public OnRoundStart(Handle:event, const String:name[], bool:hide_broadcast) {
 
   Game_LockSpawnDoors();
-
-  if (GetConVarInt(cvar_force_arena) > 0) {
-    Game_ForceArenaMode();
-  }
 
   Game_ResetRoundState();
 
