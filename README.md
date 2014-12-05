@@ -79,7 +79,7 @@ Fortunately, the excellent [Stripper: Source](http://www.bailopan.net/stripper/)
 
 *Arena: Respawn* is also designed to function on King of the Hill maps, but additional Stripper configuration is required to do so.
 
-If you would like to run a King of the Hill map, copy or symlink [koth.cfg](addons/stripper/maps/koth.cfg) to a filename corresponding with the map you wish to use. For example, on a \*nix system, `ln -s koth_king.cfg koth.cfg` would create a symlink at `koth_king.cfg`, loading the special KOTH Stripper rules the next time `koth_king` is played.
+If you would like to run a King of the Hill map, copy or symlink [koth.cfg](addons/stripper/maps/koth.cfg) to a filename corresponding with the map you wish to use. For example, on a \*nix system, `ln -s koth.cfg koth_king.cfg` would create a symlink at `koth_king.cfg`, loading the special KOTH Stripper rules the next time `koth_king` is played.
 
 Aside from this slightly manual configuration, everything else about the KOTH conversion is handled inside the plugin, including a full conversion of each spawn area to an Arena-style spawn.
 
