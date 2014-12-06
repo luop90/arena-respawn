@@ -4,6 +4,7 @@
 #define _respawn_includes
 
 #include <respawn/game>
+#include <respawn/respawn>
 #include <respawn/client>
 #include <respawn/entity>
 #include <respawn/team>

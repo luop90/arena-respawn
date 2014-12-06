@@ -153,9 +153,8 @@ public OnClientDisconnect_Post(client) {
 // Fired on teamplay_round_start.
 public OnRoundStart(Handle:event, const String:name[], bool:hide_broadcast) {
 
-  Game_LockSpawnDoors();
-
-  Game_ResetRoundState();
+  Respawn_LockSpawnDoors();
+  Respawn_ResetRoundState();
 
   if (Game_CountCapPoints() > 1) {
     SetConVarInt(cvar_cap_enable_time, -1);
@@ -166,7 +165,7 @@ public OnRoundStart(Handle:event, const String:name[], bool:hide_broadcast) {
 
   if (Game_CountCapPoints() == 5) {
     Log("Chosen midpoint: %d", mid_index);
-    Game_SetupSpawns_FiveCp();
+    Respawn_SetupSpawns_FiveCp();
     for (new i = 1; i <= MaxClients; i++) {
       CreateTimer(0.01, Timer_RespawnPlayer, i);
     }
@@ -177,12 +176,12 @@ public OnRoundStart(Handle:event, const String:name[], bool:hide_broadcast) {
 // Fired after the gates open in Arena.
 public OnArenaStart(Handle:event, const String:name[], bool:hide_broadcast) {
 
-  Game_UnlockSpawnDoors();
+  Respawn_UnlockSpawnDoors();
+  Respawn_SetupCapPoints();
   Game_RegeneratePlayers();
-  Game_SetupCapPoints();
 
   // Make our own round timer, if applicable.
-  Game_CreateCapTimer();
+  Respawn_CreateCapTimer();
 
   // Clear all MFD in case anything is lingering (if a round suddenly restarted, for example).
   for (new i = 1; i <= MaxClients; i++) {
@@ -263,7 +262,7 @@ public OnTeamCapture(const String:output[], caller, activator, Float:delay) {
 
 public OnWin(const String:output[], caller, activator, Float:delay) {
 
-  Game_ResetRoundState();
+  Respawn_ResetRoundState();
 
 }
 
