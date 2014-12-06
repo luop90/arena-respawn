@@ -94,9 +94,21 @@ stock Game_ResetRoundState() {
  */
 stock Game_CountCapPoints() {
 
+  return Game_CountEntities("team_control_point");
+
+}
+
+/**
+ * Returns the number of entities of the given class present in the game.
+ *
+ * @param                   The classname to search for.
+ * @return                  The number of the given entity type present.
+ */
+stock Game_CountEntities(const String:classname[]) {
+
   new count = 0;
-  new point = -1;
-  while ((point = FindEntityByClassname(point, "team_control_point")) != -1) {
+  new ent = -1;
+  while ((ent = FindEntityByClassname(ent, classname)) != -1) {
     count++;
   }
   return count;
