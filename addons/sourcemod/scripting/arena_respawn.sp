@@ -57,7 +57,7 @@ new Handle:client_mark_timer[MAXPLAYERS+1] = { INVALID_HANDLE, ... };
 new String:quiet_cvars[][] = { "tf_arena_first_blood", "tf_arena_max_streak", "tf_caplinear" };
 
 // Preserve these variables across players' lives, but only if they're playing the same class.
-new String:preserved_int_names[][] = { "m_iKillStreak", "m_iDecapitations", "m_iRevengeCrits" };
+new String:preserved_int_names[][] = { "m_iDecapitations", "m_iRevengeCrits" };
 new preserved_ints[MAXPLAYERS+1][sizeof(preserved_int_names)];
 new String:preserved_float_names[][] = { "m_flRageMeter", "m_flHypeMeter" };
 new Float:preserved_floats[MAXPLAYERS+1][sizeof(preserved_float_names)];
