@@ -190,3 +190,28 @@ stock Entity_Intersect(ent1, ent2) {
   return true;
 
 }
+
+/**
+ * Removes an old healthkit and spawns a new one in with the same position and
+ * rotation as the old one.
+ *
+ * @param entity           Entity index.
+ * @param classname        Classname of the replacement entity.
+ * @noreturn
+ */
+stock Entity_ReplaceWith(entity, const String:classname[]) {
+
+  decl Float:pos[3];
+  Entity_GetTrueAbsOrigin(entity, pos);
+
+  decl Float:vec[3];
+  Entity_GetAbsAngles(entity, vec);
+
+  Entity_Kill(entity);
+
+  new new_ent = CreateEntityByName(classname);
+  DispatchKeyValueVector(new_ent, "origin", pos);
+  DispatchKeyValueVector(new_ent, "angles", vec);
+  DispatchSpawn(new_ent);
+
+}

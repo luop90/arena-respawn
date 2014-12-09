@@ -25,7 +25,7 @@
 /**
  * Returns the number of in-game players.
  *
- * @return                  Number of players on RED and BLU.
+ * @return                 Number of players on RED and BLU.
  */
 stock Game_CountActivePlayers() {
   new n = 0;
@@ -73,7 +73,7 @@ stock Game_RegeneratePlayers() {
 /**
  * Returns the number of control points in the map.
  *
- * @return                  The number of team_control_point entities present.
+ * @return                 The number of team_control_point entities present.
  */
 stock Game_CountCapPoints() {
 
@@ -84,15 +84,18 @@ stock Game_CountCapPoints() {
 /**
  * Returns the number of entities of the given class present in the game.
  *
- * @param                   The classname to search for.
- * @return                  The number of the given entity type present.
+ * @param classname        The classname to search for.
+ * @param include_marked   Whether to include entities marked for death.
+ * @return                 The number of the given entity type present.
  */
-stock Game_CountEntities(const String:classname[]) {
+stock Game_CountEntities(const String:classname[], bool:include_marked = true) {
 
   new count = 0;
   new ent = -1;
   while ((ent = FindEntityByClassname(ent, classname)) != -1) {
-    count++;
+    if (include_marked || !(Entity_GetEFlags(ent) & EFL_KILLME)) {
+      count++;
+    }
   }
   return count;
 
@@ -101,10 +104,63 @@ stock Game_CountEntities(const String:classname[]) {
 /**
  * Returns the amount of time (in seconds) since a control point was last captured.
  *
- * @return                  Time since a control point was last captured.
+ * @return                 Time since a control point was last captured.
  */
 stock Game_TimeSinceLastCap() {
 
   return GetGameTime() - last_cap_time;
+
+}
+
+/**
+ * Replaces entities of a given classname with new entities in the same
+ * position and rotation with the replacement classname.
+ *
+ * @param old_classname    Classname to search for.
+ * @param new_classname    Classname to replace with.
+ * @noreturn
+ */
+stock Game_ReplaceEntities(const String:old_classname[], const String:new_classname[]) {
+
+  new ent = -1;
+  while ((ent = FindEntityByClassname(ent, old_classname)) != -1) {
+    Entity_ReplaceWith(ent, new_classname);
+  }
+
+}
+
+/**
+ * Finds the position of the average spawn location of the given team.
+ *
+ * @param team             Team index.
+ * @param pos              Vector of the average spawn location.
+ * @noreturn
+ */
+stock Game_AveragePlayerSpawn(team, Float:pos[3]) {
+
+  new spawn = -1;
+  new count = 0;
+  new Float:avg_pos[3] = { 0.0, ... };
+  decl Float:spawn_pos[3];
+  while ((spawn = FindEntityByClassname(spawn, "info_player_teamspawn")) != -1) {
+    if (GetEntProp(spawn, Prop_Data, "m_iInitialTeamNum") != team) {
+      continue;
+    }
+    Entity_GetTrueAbsOrigin(spawn, spawn_pos);
+    avg_pos[0] += spawn_pos[0];
+    avg_pos[1] += spawn_pos[1];
+    avg_pos[2] += spawn_pos[2];
+    count++;
+  }
+
+  if (count > 0) {
+    pos[0] = avg_pos[0] / count;
+    pos[1] = avg_pos[1] / count;
+    pos[2] = avg_pos[2] / count;
+  } else {
+    pos[0] = 0.0;
+    pos[1] = 0.0;
+    pos[2] = 0.0;
+  }
 
 }

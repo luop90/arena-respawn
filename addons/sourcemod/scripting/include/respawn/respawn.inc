@@ -346,6 +346,120 @@ stock Respawn_UnlockSpawnDoors() {
 }
 
 /**
+ * Decreases health pickups on KOTH maps.
+ *
+ * @noreturn
+ */
+stock Respawn_SetupHealthKits() {
+
+  decl String:map_name[64];
+  GetCurrentMap(map_name, sizeof(map_name));
+
+  new Float:red_spawn[3];
+  new Float:blu_spawn[3];
+  new Float:red_distance;
+  new Float:blu_distance;
+  new Float:point_distance;
+
+  Game_AveragePlayerSpawn(_:TFTeam_Red, red_spawn);
+  Game_AveragePlayerSpawn(_:TFTeam_Blue, blu_spawn);
+
+  // If this isn't a KOTH map, assume the mapper knew what they were doing and
+  // leave it alone.
+  if (strncmp(map_name, "koth_", 5) == 0) {
+
+    // If a large healthkit is present, downgrade all healthkits by a factor of one.
+    if (Game_CountEntities("item_healthkit_full") > 0) {
+
+      Game_ReplaceEntities("item_healthkit_medium", "item_healthkit_small");
+      Game_ReplaceEntities("item_healthkit_full", "item_healthkit_medium");
+
+    // If there are too many medium healthkits, downgrade all healthkits in non-contested areas.
+    } else if (Game_CountEntities("item_healthkit_medium") > 2) {
+
+      new pack = -1;
+
+      while ((pack = FindEntityByClassname(pack, "item_healthkit_medium")) != -1) {
+
+        red_distance = Entity_GetDistanceOrigin(pack, red_spawn);
+        blu_distance = Entity_GetDistanceOrigin(pack, blu_spawn);
+
+        if (FloatAbs(red_distance - blu_distance) >= 512.0) {
+          Entity_ReplaceWith(pack, "item_healthkit_small");
+        }
+
+      }
+
+    }
+
+  }
+
+  // If we reach this stage and there are no medium healthkits, even if this is an Arena map,
+  // search for small healthkits in contested areas and upgrade the one furthest from the point.
+  if (Game_CountEntities("item_healthkit_medium", false) < 1) {
+
+    // If there is exactly one healthkit, we can skip all the calculations and upgrade that.
+    // If that healthkit is not in a balanced area, that's the map's fault!
+    if (Game_CountEntities("item_healthkit_small", false) == 1) {
+
+      Entity_ReplaceWith(FindEntityByClassname(-1, "item_healthkit_small"), "item_healthkit_medium");
+
+    // Otherwise, find an appropriate pill to upgrade.
+    } else {
+
+      new pill = -1;
+      new otherpill = -1;
+      new pill_to_upgrade = -1;
+      new control_point = CapPoint_FindByIndex(0);
+      new bool:bad_pill = false;
+
+      while ((pill = FindEntityByClassname(pill, "item_healthkit_small")) != -1) {
+
+        red_distance = Entity_GetDistanceOrigin(pill, red_spawn);
+        blu_distance = Entity_GetDistanceOrigin(pill, blu_spawn);
+
+        // If this pill is equidistant from both spawns, it's a good candidate!
+        if (FloatAbs(red_distance - blu_distance) < 512.0) {
+
+          // However, if another pill exists that is the same distance away from the control
+          // point as this one is, and which is ALSO equidistant from spawn, upgrading this pill
+          // would make the map lopsided - so mark it as a bad location for an upgrade.
+          otherpill = -1;
+          bad_pill = false;
+          point_distance = Entity_GetDistance(pill, control_point);
+          while ((otherpill = FindEntityByClassname(otherpill, "item_healthkit_small")) != -1) {
+            if (otherpill == pill
+                || FloatAbs(Entity_GetDistanceOrigin(otherpill, red_spawn) -
+                   Entity_GetDistanceOrigin(otherpill, blu_spawn)) >= 512.0) {
+              continue;
+            }
+            if (FloatAbs(Entity_GetDistance(otherpill, control_point) - point_distance) < 256.0) {
+              bad_pill = true;
+              break;
+            }
+          }
+
+          // If this is not a bad pill location, and it is further from the point than the
+          // previous candidate, name this pill as the most likely candidate.
+          if (!bad_pill && (pill_to_upgrade == -1
+            || Entity_GetDistance(pill, control_point) > Entity_GetDistance(pill_to_upgrade, control_point))) {
+            pill_to_upgrade = pill;
+          }
+        }
+
+      }
+
+      if (pill_to_upgrade > 0) {
+        Entity_ReplaceWith(pill_to_upgrade, "item_healthkit_medium");
+      }
+
+    }
+
+  }
+
+}
+
+/**
  * (Experimental) Set up spawns for 5cp play.
  *
  * @noreturn
