@@ -21,7 +21,7 @@ arena_lumberyard
 arena_granary
 arena_capricorn_b1
 arena_watchtower
-arena_nucleus
+koth_nucleus
 koth_airfield_b7
 koth_moonshine_rc
 koth_rocktop_rc1
