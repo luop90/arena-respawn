@@ -25,6 +25,10 @@
 // Displays a welcome message.
 public Action:Timer_Credits(Handle:timer, any:client) {
 
+  if (!IsValidClient(client)) {
+    return;
+  }
+
   Client_PrintToChat(client, true, "This server is running {G}Arena: Respawn v%s{N} by {G}awk{N}.", PLUGIN_VERSION);
   Client_PrintToChat(client, true, "For news and updates, join the official steam group at {G}http://steam.respawn.tf/{N}.");
 
@@ -67,5 +71,133 @@ public Action:Timer_RespawnPlayer(Handle:timer, any:client) {
 
     TF2_RespawnPlayer(client);
   }
+
+}
+
+// Forces a player to respawn, but only if they are dead.
+public Action:Timer_DMRespawnPlayer(Handle:timer, any:client) {
+
+  if (IsValidClient(client) && !IsPlayerAlive(client)) {
+    TF2_RespawnPlayer(client);
+  }
+  dm_respawntimer[client] = INVALID_HANDLE;
+
+}
+
+// In pre-tournament mode, keep players alive.
+public Action:Timer_RespawnDeadPlayers(Handle:timer) {
+
+  if (!Respawn_Enabled()) return;
+
+  if (state != GameState_PreTournament) {
+    return;
+  }
+
+  for (new i = 1; i <= MaxClients; i++) {
+
+    if (IsValidClient(i) && GetClientTeam(i) >= _:TFTeam_Red
+      && !IsPlayerAlive(i) && dm_respawntimer[i] == INVALID_HANDLE) {
+      dm_respawntimer[i] = CreateTimer(1.0, Timer_DMRespawnPlayer, i);
+    }
+
+  }
+
+}
+
+// Draws the A:R tournament state HUD.
+public Action:Timer_DrawHUD(Handle:timer) {
+
+  if (!Respawn_Enabled()) return;
+
+  // If we're not in pre-tournament mode, don't draw a HUD.
+  if (state != GameState_PreTournament) {
+    return;
+  }
+
+  new red;
+  new green;
+  new blue;
+  new Float:x;
+  new Float:y;
+
+  decl String:ready[16];
+  decl String:ban[16];
+  decl String:team_name[32];
+
+  for (new team = _:TFTeam_Red; team <= _:TFTeam_Blue; team++) {
+
+    team_name = "";
+    if (team == _:TFTeam_Red) {
+      x = 0.35;
+      red = 255;
+      green = 0;
+      blue = 0;
+      GetConVarString(FindConVar("mp_tournament_redteamname"), team_name, sizeof(team_name));
+    } else if (team == _:TFTeam_Blue) {
+      x = 0.55;
+      red = 100;
+      green = 100;
+      blue = 255;
+      GetConVarString(FindConVar("mp_tournament_blueteamname"), team_name, sizeof(team_name));
+    }
+    y = 0.1;
+
+    SetHudTextParams(x, y, 2.01, red, green, blue, 255, 0, 0.0, 0.0, 0.0);
+
+    // Prepare ready/not ready text
+    if (team_ready[team - 2]) {
+      ready = "Ready";
+    } else {
+      ready = "Not Ready";
+    }
+
+    // Prepare class ban text
+    if (team_ban[team - 2] == TFClass_Unknown) {
+      ban = "NONE";
+    } else {
+      Class_GetName(team_ban[team - 2], ban, sizeof(ban));
+      ban[0] &= ~(1 << 5);
+    }
+
+    // Display message to all clients.
+    for (new i = 1; i <= MaxClients; i++) {
+      if (!IsValidClient(i)) {
+        continue;
+      }
+      ShowSyncHudText(i, hud[team - 2], "%s\n%s\nBan: %s", team_name, ready, ban);
+    }
+
+  }
+
+  // Add "vs." in the center
+  for (new i = 1; i <= MaxClients; i++) {
+    if (!IsValidClient(i)) {
+      continue;
+    }
+    SetHudTextParams(-1.0, y, 2.1, 255, 255, 255, 255);
+    ShowSyncHudText(i, hud_middle, "vs.");
+  }
+
+}
+
+// (For tournament mode) Force both teams to be ready
+public Action:Timer_ForceTeamsReady(Handle:timer) {
+
+  for (new i = 1; i < 32; i++) {
+    GameRules_SetProp("m_bTeamReady", 1, .element=i);
+  }
+
+}
+
+// In pre-tournament mode, reminds players of the tournament commands.
+public Action:Timer_TournamentHintText(Handle:timer) {
+
+  if (!Respawn_Enabled()) return;
+
+  // If we're not in pre-tournament mode, don't do anything.
+  if (state != GameState_PreTournament) { return; }
+
+  PrintHintTextToAll("%s\n%s", "Commands: !ready, !unready, !teamname, !banclass.",
+    "Use !class to switch classes.");
 
 }

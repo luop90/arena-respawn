@@ -17,7 +17,7 @@
 
 #pragma semicolon 1
 
-#define PLUGIN_VERSION "1.2.0"
+#define PLUGIN_VERSION "1.2.1"
 
 #include <sourcemod>
 #include <sdktools>
@@ -35,15 +35,30 @@ public Plugin:myinfo = {
 
 }
 
-new Handle:cvar_first_blood = INVALID_HANDLE;
-new Handle:cvar_cap_enable_time = INVALID_HANDLE;
-new Handle:cvar_caplinear = INVALID_HANDLE;
-new Handle:cvar_invuln_time = INVALID_HANDLE;
-new Handle:cvar_cap_time = INVALID_HANDLE;
+enum GameState {
+
+  GameState_Public,
+  GameState_PreTournament,
+  GameState_Tournament
+
+};
+
+// TF2 ConVars
+new Handle:cvar_arena                 = INVALID_HANDLE;
+new Handle:cvar_first_blood           = INVALID_HANDLE;
+new Handle:cvar_cap_enable_time       = INVALID_HANDLE;
+new Handle:cvar_caplinear             = INVALID_HANDLE;
+
+// Plugin ConVars
+new Handle:cvar_plugin_loaded         = INVALID_HANDLE;
+new Handle:cvar_plugin_enabled        = INVALID_HANDLE;
+new Handle:cvar_invuln_time           = INVALID_HANDLE;
+new Handle:cvar_cap_time              = INVALID_HANDLE;
 new Handle:cvar_first_blood_threshold = INVALID_HANDLE;
-new Handle:cvar_lms_critboost = INVALID_HANDLE;
-new Handle:cvar_lms_minicrits = INVALID_HANDLE;
-new Handle:cvar_logging = INVALID_HANDLE;
+new Handle:cvar_lms_critboost         = INVALID_HANDLE;
+new Handle:cvar_lms_minicrits         = INVALID_HANDLE;
+new Handle:cvar_logging               = INVALID_HANDLE;
+new Handle:cvar_autorecord            = INVALID_HANDLE;
 
 new cap_owner = 0;
 new mid_index = 2;
@@ -52,6 +67,14 @@ new Float:last_cap_time = 0.0;
 new bool:client_on_point[MAXPLAYERS+1] = { false, ... };
 new bool:client_is_marked[MAXPLAYERS+1] = { false, ... };
 new Handle:client_mark_timer[MAXPLAYERS+1] = { INVALID_HANDLE, ... };
+
+// Tournament variables
+new GameState:state = GameState_Public;
+new bool:team_ready[2] = { false, ... };
+new TFClassType:team_ban[2] = { TFClass_Unknown, ... };
+new Handle:hud[2] = { INVALID_HANDLE, ... };
+new Handle:hud_middle = INVALID_HANDLE;
+new Handle:dm_respawntimer[MAXPLAYERS+1] = { INVALID_HANDLE, ... };
 
 // Hide these cvar changes, as they're handled by the plugin itself.
 new String:quiet_cvars[][] = { "tf_arena_first_blood", "tf_arena_max_streak", "tf_caplinear" };
@@ -89,10 +112,27 @@ public OnPluginStart() {
   HookEvent("teamplay_point_captured", OnPointCaptured);
   HookEvent("arena_round_start", OnArenaStart);
   HookEvent("player_death", OnPlayerDeath);
+  HookEvent("teamplay_game_over", OnGameOver);
+  HookEvent("tf_game_over", OnGameOver);
 
+  RegConsoleCmd("sm_class", Command_ChangeClass);
+  RegConsoleCmd("sm_ready", Command_TeamReady);
+  RegConsoleCmd("sm_unready", Command_TeamUnReady);
+  RegConsoleCmd("sm_banclass", Command_TeamBan);
+  RegConsoleCmd("sm_teamname", Command_TeamName);
+  RegAdminCmd("ars_tournament_start", Command_StartTournament, ADMFLAG_CONFIG);
+  RegAdminCmd("ars_tournament_stop", Command_StopTournament, ADMFLAG_CONFIG);
+
+  cvar_arena = FindConVar("tf_gamemode_arena");
   cvar_first_blood = FindConVar("tf_arena_first_blood");
   cvar_cap_enable_time = FindConVar("tf_arena_override_cap_enable_time");
   cvar_caplinear = FindConVar("tf_caplinear");
+
+  cvar_plugin_loaded = CreateConVar("ars_loaded", "1",
+    "Indicates whether the plugin is loaded or not. Can be used to check if a server is A:R-capable.");
+
+  cvar_plugin_enabled = CreateConVar("ars_enable", "1",
+    "Turns Arena: Respawn on or off.");
 
   cvar_logging = CreateConVar("ars_log_enabled", "1",
     "1 to enable status messages in the console, 0 to disable.");
@@ -111,6 +151,29 @@ public OnPluginStart() {
 
   cvar_lms_minicrits = CreateConVar("ars_lms_minicrits", "0",
     "Set to 1 to turn the Last Man Standing critboost into minicrits instead.");
+
+  cvar_autorecord = CreateConVar("ars_autorecord", "0",
+    "Set to 1 to automatically record tournaments (SourceTV must be enabled).");
+
+  for (new i = 0; i < 2; i++) {
+    hud[i] = CreateHudSynchronizer();
+  }
+  hud_middle = CreateHudSynchronizer();
+  CreateTimer(2.0, Timer_DrawHUD, _, TIMER_REPEAT);
+  CreateTimer(1.0, Timer_RespawnDeadPlayers, _, TIMER_REPEAT);
+
+  CreateTimer(30.0, Timer_TournamentHintText, _, TIMER_REPEAT);
+
+}
+
+// Fired when configs execute.
+public OnConfigsExecuted() {
+
+  if (!Respawn_Enabled()) return;
+
+  if (state == GameState_PreTournament) {
+    Command_StartTournament(-1, 0);
+  }
 
 }
 
@@ -132,10 +195,16 @@ public OnMapEnd() {
     client_mark_timer[i] = INVALID_HANDLE;
   }
 
+  if (state == GameState_Tournament) {
+    state = GameState_PreTournament;
+  }
+
 }
 
 // Fired when a client connects to the server.
 public OnClientPostAdminCheck(client) {
+
+  if (!Respawn_Enabled()) return;
 
   CreateTimer(1.0, Timer_Credits, client);
 
@@ -152,6 +221,8 @@ public OnClientDisconnect_Post(client) {
 
 // Fired on teamplay_round_start.
 public OnRoundStart(Handle:event, const String:name[], bool:hide_broadcast) {
+
+  if (!Respawn_Enabled()) return;
 
   Respawn_LockSpawnDoors();
   Respawn_ResetRoundState();
@@ -179,6 +250,8 @@ public OnRoundStart(Handle:event, const String:name[], bool:hide_broadcast) {
 
 // Fired after the gates open in Arena.
 public OnArenaStart(Handle:event, const String:name[], bool:hide_broadcast) {
+
+  if (!Respawn_Enabled()) return;
 
   Respawn_UnlockSpawnDoors();
   Respawn_SetupCapPoints();
@@ -214,6 +287,8 @@ public OnArenaStart(Handle:event, const String:name[], bool:hide_broadcast) {
 
 // Fired by a trigger_capture_area on team capture.
 public OnTeamCapture(const String:output[], caller, activator, Float:delay) {
+
+  if (!Respawn_Enabled()) return;
 
   // Set the last capture time.
   last_cap_time = GetGameTime();
@@ -264,14 +339,18 @@ public OnTeamCapture(const String:output[], caller, activator, Float:delay) {
 
 }
 
+// Fired when win conditions have been met.
 public OnWin(const String:output[], caller, activator, Float:delay) {
 
+  if (!Respawn_Enabled()) return;
   Respawn_ResetRoundState();
 
 }
 
 // Fired by a trigger_capture_area when a player starts or stops coming into contact with it.
 public OnPointTouch(const String:output[], caller, activator, Float:delay) {
+
+  if (!Respawn_Enabled()) return;
 
   // Ignore if the activator wasn't a client.
   if (!IsValidClient(activator)) {
@@ -335,6 +414,8 @@ public OnPointTouch(const String:output[], caller, activator, Float:delay) {
 // Fired as a netevent when a point has been successfully captured.
 // Unlike the team_control_point output, this allows us access to the players who captured the point.
 public OnPointCaptured(Handle:event, const String:name[], bool:hide_broadcast) {
+
+  if (!Respawn_Enabled()) return;
 
   new String:cap_message[256];
   new String:player_name[64];
@@ -420,12 +501,28 @@ public OnPointCaptured(Handle:event, const String:name[], bool:hide_broadcast) {
 // Fired when a player dies or activates their Dead Ringer.
 public OnPlayerDeath(Handle:event, const String:name[], bool:hide_broadcast) {
 
+  if (!Respawn_Enabled()) return;
+
   new victim = GetClientOfUserId(GetEventInt(event, "userid"));
+  new attacker = GetClientOfUserId(GetEventInt(event, "attacker"));
   new team = GetClientTeam(victim);
   new flags = GetEventInt(event, "death_flags");
 
   // Nobody cares about dead ringers.
   if(!IsValidClient(victim) || flags & 32) {
+    return;
+  }
+
+  // If we are in pre-tournament (deathmatch) mode, instantly respawn the player,
+  // resupply the attacker, but do nothing else.
+  if (state == GameState_PreTournament) {
+    if (dm_respawntimer[victim] == INVALID_HANDLE) {
+      dm_respawntimer[victim] = CreateTimer(1.0, Timer_DMRespawnPlayer, victim);
+    }
+    if (IsValidClient(attacker) && attacker != victim) {
+      Client_PrintToChat(victim, true, "Your opponent had {G}%d{N} health remaining.", Entity_GetHealth(attacker));
+      TF2_RegeneratePlayer(attacker);
+    }
     return;
   }
 
@@ -462,7 +559,29 @@ public OnPlayerDeath(Handle:event, const String:name[], bool:hide_broadcast) {
 
 }
 
+// Fired when a game has ended because win conditions were met.
+public OnGameOver(Handle:event, const String:name[], bool:hide_broadcast) {
+
+  if (!Respawn_Enabled()) return;
+
+  if (state == GameState_Tournament) {
+
+    Log("Tournament over! Reverting back to deathmatch mode.");
+
+    if (GetConVarInt(cvar_autorecord) > 0) {
+      ServerCommand("tv_stoprecord");
+    }
+
+    // We are no longer in Tournament mode, revert to PreTournament.
+    Command_StartTournament(-1, 0);
+
+  }
+
+}
+
 public Action:OnTeamAudio(Handle:event, const String:name[], bool:hide_broadcast) {
+
+  if (!Respawn_Enabled()) return Plugin_Continue;
 
   new String:vo[64];
   GetEventString(event, "sound", vo, sizeof(vo));
@@ -484,6 +603,8 @@ public Action:OnTeamAudio(Handle:event, const String:name[], bool:hide_broadcast
 // Intercepts configuration variable changes and silences some of them.
 public Action:SilenceConVarChange(Handle:event, String:name[], bool:hide_broadcast) {
 
+  if (!Respawn_Enabled()) return Plugin_Continue;
+
   new String:cvar_name[64];
   GetEventString(event, "cvarname", cvar_name, sizeof(cvar_name));
 
@@ -498,19 +619,193 @@ public Action:SilenceConVarChange(Handle:event, String:name[], bool:hide_broadca
 
 }
 
-// Prints a prefixed log to the console.
-public Log(const String:to_log[], any:...) {
+// Player command - lets players change class in deathmatch mode.
+public Action:Command_ChangeClass(client, args) {
 
-  if (GetConVarInt(cvar_logging) != 1) {
-    return;
+  if (!Respawn_Enabled()) return Plugin_Handled;
+
+  // If we're not in tournament mode, do nothing.
+  if (state != GameState_PreTournament) {
+    Client_PrintToChat(client, true, "{G}Not in pre-tournament mode!");
+    return Plugin_Handled;
   }
 
-  new String:prefixed_string[512];
-  new String:log_string[512];
-  prefixed_string = "[Arena: Respawn] ";
-  StrCat(prefixed_string, sizeof(prefixed_string), to_log);
-  VFormat(log_string, sizeof(log_string), prefixed_string, 2);
+  // If no class was mentioned, return.
+  if (args < 1) {
+    Client_PrintToChat(client, true, "{G}Please enter a class.");
+    return Plugin_Handled;
+  }
 
-  PrintToServer(log_string);
+  new String:classname[64];
+  GetCmdArgString(classname, sizeof(classname));
+
+  new TFClassType:class = Class_GetFromName(classname);
+  if (class == TFClass_Unknown) {
+    Client_PrintToChat(client, true, "{G}Invalid input.");
+    return Plugin_Handled;
+  }
+
+  TF2_SetPlayerClass(client, class);
+  TF2_RespawnPlayer(client);
+
+  return Plugin_Handled;
+
+}
+
+// Player command - sets team state to ready.
+public Action:Command_TeamReady(client, args) {
+
+  if (!Respawn_Enabled()) return Plugin_Handled;
+
+  // If we're not in tournament mode, do nothing.
+  if (state != GameState_PreTournament) {
+    Client_PrintToChat(client, true, "{G}Not in pre-tournament mode!");
+    return Plugin_Handled;
+  }
+
+  new team = GetClientTeam(client);
+  if (IsValidClient(client) && team > _:TFTeam_Spectator) {
+    team_ready[team - 2] = true;
+  }
+
+  if (Respawn_CheckTeamReadyState(GetClientTeam(client))) {
+    Respawn_CheckTournamentState();
+  }
+
+  return Plugin_Handled;
+
+}
+
+// Player command - sets team state to unready.
+public Action:Command_TeamUnReady(client, args) {
+
+  if (!Respawn_Enabled()) return Plugin_Handled;
+
+  // If we're not in tournament mode, do nothing.
+  if (state != GameState_PreTournament) {
+    Client_PrintToChat(client, true, "{G}Not in pre-tournament mode!");
+    return Plugin_Handled;
+  }
+
+  new team = GetClientTeam(client);
+  if (IsValidClient(client) && team > _:TFTeam_Spectator) {
+    team_ready[team - 2] = false;
+  }
+
+  Respawn_CheckTournamentState();
+
+  return Plugin_Handled;
+
+}
+
+// Player command - sets team class ban.
+public Action:Command_TeamBan(client, args) {
+
+  if (!Respawn_Enabled()) return Plugin_Handled;
+
+  // If we're not in tournament mode, do nothing.
+  if (state != GameState_PreTournament) {
+    Client_PrintToChat(client, true, "{G}Not in pre-tournament mode!");
+    return Plugin_Handled;
+  }
+
+  // If no class was mentioned, return.
+  if (args < 1) {
+    Client_PrintToChat(client, true, "{G}Please enter a class to ban.");
+    return Plugin_Handled;
+  }
+
+  new String:classname[64];
+  GetCmdArgString(classname, sizeof(classname));
+
+  new team = GetClientTeam(client);
+
+  new TFClassType:class = Class_GetFromName(classname);
+  if (class == TFClass_Unknown) {
+    Client_PrintToChat(client, true, "{G}Invalid input.");
+    return Plugin_Handled;
+  } else if (class == team_ban[Team_EnemyTeam(team) - 2]) {
+    Client_PrintToChat(client, true, "{G}That class is already banned!");
+    return Plugin_Handled;
+  }
+  
+  if (IsValidClient(client) && team > _:TFTeam_Spectator) {
+    team_ban[team - 2] = class;
+  }
+
+  Respawn_CheckTournamentState();
+
+  return Plugin_Handled;
+
+}
+
+// Player command - sets team name.
+public Action:Command_TeamName(client, args) {
+
+  if (!Respawn_Enabled()) return Plugin_Handled;
+
+  // If we're not in tournament mode, do nothing.
+  if (state != GameState_PreTournament) {
+    Client_PrintToChat(client, true, "{G}Not in pre-tournament mode!");
+    return Plugin_Handled;
+  }
+
+  // If no name was mentioned, return.
+  if (args < 1) {
+    Client_PrintToChat(client, true, "{G}Please enter a team name.");
+    return Plugin_Handled;
+  }
+
+  new String:team_name[16];
+  GetCmdArgString(team_name, sizeof(team_name));
+
+  new team = GetClientTeam(client);
+
+  if (team == _:TFTeam_Red) {
+    SetConVarString(FindConVar("mp_tournament_redteamname"), team_name);
+  } else if (team == _:TFTeam_Blue) {
+    SetConVarString(FindConVar("mp_tournament_blueteamname"), team_name);
+  }
+
+  return Plugin_Handled;
+
+}
+
+// Admin command - starts a tournament.
+public Action:Command_StartTournament(client, args) {
+
+  if (!Respawn_Enabled()) return Plugin_Handled;
+
+  state = GameState_PreTournament;
+  Client_PrintToChatAll(false, "{G}Entering Tournament Mode");
+
+  for (new i = 0; i < 2; i++) {
+    team_ready[i] = false;
+    team_ban[i] = TFClass_Unknown;
+  }
+
+  ServerCommand("mp_tournament 0 ; exec sourcemod/respawn.pretournament.cfg");
+
+  CapArea_Lock(CapArea_FindByIndex(0));
+
+  return Plugin_Handled;
+
+}
+
+// Admin command - stops a tournament.
+public Action:Command_StopTournament(client, args) {
+
+  if (!Respawn_Enabled()) return Plugin_Handled;
+
+  state = GameState_Public;
+  Client_PrintToChatAll(false, "{G}Exiting Tournament Mode");
+
+  if (GetConVarInt(cvar_autorecord) > 0) {
+    ServerCommand("tv_stoprecord");
+  }
+
+  ServerCommand("mp_tournament 0 ; exec sourcemod/respawn.public.cfg");
+
+  return Plugin_Handled;
 
 }

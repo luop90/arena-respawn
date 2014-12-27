@@ -23,6 +23,49 @@
 #define _respawn_include_respawn
 
 /**
+ * Prints a formatted log message to the console.
+ *
+ * @noreturn
+ */
+public Log(const String:to_log[], any:...) {
+
+  if (GetConVarInt(cvar_logging) != 1) {
+    return;
+  }
+
+  new String:prefixed_string[512];
+  new String:log_string[512];
+  prefixed_string = "[Arena: Respawn] ";
+  StrCat(prefixed_string, sizeof(prefixed_string), to_log);
+  VFormat(log_string, sizeof(log_string), prefixed_string, 2);
+
+  PrintToServer(log_string);
+
+}
+
+/**
+ * Checks if Arena: Respawn is currently enabled.
+ *
+ * @noreturn
+ */
+stock Respawn_Enabled() {
+
+  // If we are not in Arena mode, we should not be enabled.
+  if (!GetConVarInt(cvar_arena)) {
+    return false;
+
+  // Otherwise, check ars_enable to find out.
+  } else if (GetConVarInt(cvar_plugin_enabled) <= 0) {
+    return false;
+
+  } else {
+    return true;
+
+  }
+
+}
+
+/**
  * Resets per-round tracking variables.
  *
  * @noreturn
@@ -456,6 +499,151 @@ stock Respawn_SetupHealthKits() {
     }
 
   }
+
+}
+
+/**
+ * Checks if a tournament is ready to start, and starts the tournament if it is.
+ *
+ * @noreturn
+ */
+stock Respawn_CheckTournamentState() {
+
+  // If we aren't in pre-tournament mode, we can never be ready to start.
+  if (state != GameState_PreTournament) {
+    return;
+  }
+
+  new bool:cancel = false;
+
+  // Otherwise, check if both teams are ready and have banned a class.
+  for (new i = 0; i < 2; i++) {
+    if (!team_ready[i]) { cancel = true; }
+    if (team_ban[i] == TFClass_Unknown) { cancel = true; }
+  }
+
+  if (!cancel) {
+    cancel = !(Respawn_CheckTeamReadyState(_:TFTeam_Red) && Respawn_CheckTeamReadyState(_:TFTeam_Blue));
+  }
+
+  // Cancel the countdown if necessary.
+  if (cancel) {
+    // do stuff
+    return;
+  }
+
+  // Otherwise, start tournament mode and auto-ready the teams.
+  Respawn_StartTournamentRound();
+
+}
+
+/**
+ * Begin an Arena: Respawn tournament.
+ * Forces the game into tournament mode with both teams ready.
+ *
+ * @noreturn
+ */
+stock Respawn_StartTournamentRound() {
+
+  // Put ourselves in tournament mode.
+  state = GameState_Tournament;
+  Client_PrintToChatAll(false, "{G}Match is live!");
+  ServerCommand("exec sourcemod/respawn.tournament.cfg");
+
+  // Ban the classes that are supposed to be banned.
+  decl String:classname[16];
+  for (new i = 0; i < 2; i++) {
+    Class_GetName(team_ban[i], classname, sizeof(classname));
+    ServerCommand("tf_tournament_classlimit_%s 0", classname);
+  }
+
+  ServerCommand("mp_tournament 1 ; mp_tournament_restart");
+
+  CreateTimer(1.0, Timer_ForceTeamsReady);
+
+  // Begin recording (if configured to do so)
+  if (GetConVarInt(cvar_autorecord) > 0) {
+    decl String:timestamp[32];
+    FormatTime(timestamp, sizeof(timestamp), "%F_%H-%M-%S");
+
+    decl String:map_name[32];
+    GetCurrentMap(map_name, sizeof(map_name));
+
+    ServerCommand("tv_stoprecord ; tv_record ars_%s_%dv%d_%s",
+      timestamp,
+      Team_CountPlayers(_:TFTeam_Red),
+      Team_CountPlayers(_:TFTeam_Blue),
+      map_name);
+  }
+
+}
+
+/**
+ * Checks if a team is ready for a tournament.
+ * Returns false if the team is in an invalid tournament state.
+ *
+ * @return                 True if the team is valid and ready, false if not.
+ */
+stock bool:Respawn_CheckTeamReadyState(team) {
+
+  decl String:team_name[64];
+  decl String:player_name[64];
+  decl String:class_name[64];
+  new String:team_color[] = "N";
+  new TFClassType:class = TFClass_Unknown;
+  new class_players[10] = { -1, ... };
+
+  if (team == _:TFTeam_Red) {
+    team_color = "R";
+    GetConVarString(FindConVar("mp_tournament_redteamname"), team_name, sizeof(team_name));
+  } else if (team == _:TFTeam_Blue) {
+    team_color = "B";
+    GetConVarString(FindConVar("mp_tournament_blueteamname"), team_name, sizeof(team_name));
+  }
+
+  // Ensure that:
+  // This team has locked in their class ban;
+  // No one is playing a banned class;
+  // No one is playing multiple of the same class.
+  for (new i = 1; i <= MaxClients; i++) {
+    
+    if (!IsValidClient(i) || GetClientTeam(i) != team) {
+      continue;
+    }
+
+    class = TF2_GetPlayerClass(i);
+
+    Class_GetName(class, class_name, sizeof(class_name));
+    GetClientName(i, player_name, sizeof(player_name));
+
+    if (team_ban[team - 2] == TFClass_Unknown) {
+      
+      Client_PrintToChatAll(true, "Team {%s}%s{N} is not ready - you must ban a class. Use {G}!banclass{N} to set your team's ban.",
+        team_color, team_name);
+      team_ready[team - 2] = false;
+      return false;
+
+    } else if (class == team_ban[team - 2] || class == team_ban[Team_EnemyTeam(team) - 2]) {
+
+      Client_PrintToChatAll(true, "Team {%s}%s{N} is not ready - {G}%s{N} is playing a banned class (%s). Use {G}!class{N} to change.",
+        team_color, team_name, player_name, class_name);
+      team_ready[team - 2] = false;
+      return false;
+
+    } else if (class_players[class] != -1) {
+
+      Client_PrintToChatAll(true, "Team {%s}%s{N} is not ready - multiple players are playing the same class (%s). Use {G}!class{N} to change.",
+        team_color, team_name, class_name);
+      team_ready[team - 2] = false;
+      return false;
+
+    }
+
+    class_players[class] = i;
+
+  }
+
+  return true;
 
 }
 

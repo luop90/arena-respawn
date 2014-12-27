@@ -10,6 +10,7 @@
 #include <respawn/team>
 #include <respawn/objective>
 #include <respawn/player>
+#include <respawn/class>
 #include <respawn/cap_area>
 #include <respawn/cap_point>
 #include <respawn/timers>
