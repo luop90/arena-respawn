@@ -1,6 +1,6 @@
 arena_suijin_rc2
 arena_ravine
-arena_goldtooth_rc2d
+arena_goldtooth_rc2
 arena_flourmill_b11
 arena_dropdown_rc1
 arena_yunshu_rc1
@@ -21,6 +21,7 @@ arena_lumberyard
 arena_granary
 arena_capricorn_b1
 arena_watchtower
+arena_2fort_b2
 koth_nucleus
 koth_airfield_b7
 koth_moonshine_rc
@@ -33,10 +34,10 @@ koth_arctic_b3
 koth_chasm_b1
 koth_rundown_b2
 koth_stallone_b2
-koth_highpass_b2
 koth_canopy_b3a
 koth_coalplant_b7
 koth_occult_rc3
-koth_peaks_b6a
 koth_watermill_final
-koth_twinfalls
+koth_turbine
+koth_stark_b1
+koth_railbridge_rc2
