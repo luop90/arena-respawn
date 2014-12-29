@@ -164,6 +164,8 @@ public OnPluginStart() {
 
   CreateTimer(30.0, Timer_TournamentHintText, _, TIMER_REPEAT);
 
+  CreateTimer(1.0, Timer_CheckTeams, _, TIMER_REPEAT);
+
 }
 
 // Fired when configs execute.

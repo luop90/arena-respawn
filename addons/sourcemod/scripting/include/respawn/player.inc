@@ -91,3 +91,20 @@ public Action:Player_RespawnResponse(Handle:timer, any:player) {
   }
 
 }
+
+/**
+ * Checks if the given player is in the Arena queue.
+ *
+ * @param player           Index of the player.
+ * @return                 True if they are in the Arena queue; false otherwise.
+ */
+stock Player_InArenaQueue(player) {
+
+  if (GetClientTeam(player) == _:TFTeam_Spectator
+      && GetEntProp(player, Prop_Send, "m_bArenaSpectator") < 1) {
+    return true;
+  }
+
+  return false;
+
+}

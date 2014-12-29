@@ -164,3 +164,20 @@ stock Game_AveragePlayerSpawn(team, Float:pos[3]) {
   }
 
 }
+
+/**
+ * Returns the number of players in the Arena queue, if any exist.
+ *
+ * @return                 Number of players in the queue.
+ */
+stock Game_PlayersInQueue() {
+
+  new count;
+  for (new i = 1; i <= MaxClients; i++) {
+    if (IsValidClient(i) && Player_InArenaQueue(i)) {
+      count++;
+    }
+  }
+  return count;
+
+}

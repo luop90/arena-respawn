@@ -201,3 +201,66 @@ public Action:Timer_TournamentHintText(Handle:timer) {
     "Use !class to switch classes.");
 
 }
+
+// Checks the team balance and reacts accordingly.
+public Action:Timer_CheckTeams(Handle:timer) {
+
+  if (!Respawn_Enabled()) return;
+
+  // If we're not using the Arena queue, do nothing.
+  if (GetConVarInt(FindConVar("tf_arena_use_queue")) != 1) return;
+
+  // If we're not actually in a round, don't do anything.
+  if (GameRules_GetRoundState() < RoundState_Preround
+      || state != GameState_Public) {
+    return;
+  }
+
+  // Otherwise, check the number of players on either team.
+  new players_to_add = 0;
+  new team = _:TFTeam_Unassigned;
+  new red_players = Team_CountPlayers(_:TFTeam_Red);
+  new blu_players = Team_CountPlayers(_:TFTeam_Blue);
+
+  if (red_players > blu_players) {
+    players_to_add = red_players - blu_players;
+    team = _:TFTeam_Blue;
+  } else if (blu_players > red_players) {
+    players_to_add = blu_players - red_players;
+    team = _:TFTeam_Red;
+  }
+
+  // If teams are uneven, add players from the Arena queue.
+  if (team != _:TFTeam_Unassigned) {
+    for (new i = 0; i < players_to_add; i++) {
+
+      // If we're out of players in the queue, get outta here.
+      if (Game_PlayersInQueue() <= 0) {
+        break;
+      }
+
+      // Otherwise, add someone else from the queue to the associated team.
+      for (new j = 1; j <= MaxClients; j++) {
+        if (IsValidClient(j) && Player_InArenaQueue(j)) {
+          ChangeClientTeam(j, team);
+          break;
+        }
+      }
+
+    }
+  }
+
+  // If we still have players in the queue by this point, add them in twos.
+  team = _:TFTeam_Red;
+  for (new i = 0; i <= MaxClients; i++) {
+
+    if (IsValidClient(i) && Player_InArenaQueue(i)
+        && (Team_CountPlayers(team) + 1 <= Team_CountPlayers(Team_EnemyTeam(team))
+            || Game_PlayersInQueue() >= 2)) {
+      ChangeClientTeam(i, team);
+      team = Team_EnemyTeam(team);
+    }
+
+  }
+
+}
