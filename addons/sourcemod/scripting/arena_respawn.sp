@@ -81,6 +81,9 @@ new Handle:dm_respawntimer[MAXPLAYERS+1] = { INVALID_HANDLE, ... };
 // Hide these cvar changes, as they're handled by the plugin itself.
 new String:quiet_cvars[][] = { "tf_arena_first_blood", "tf_arena_max_streak", "tf_caplinear" };
 
+// Reset these conditions when regenerating players at the start of a round.
+new TFCond:consumable_conds[] = { TFCond_Bonked, TFCond_CritCola, TFCond_CritHype, TFCond_RestrictToMelee };
+
 // Preserve these variables across players' lives, but only if they're playing the same class.
 new String:preserved_int_names[][] = { "m_iDecapitations", "m_iRevengeCrits" };
 new preserved_ints[MAXPLAYERS+1][sizeof(preserved_int_names)];
@@ -292,6 +295,7 @@ public OnArenaStart(Handle:event, const String:name[], bool:hide_broadcast) {
   Respawn_UnlockSpawnDoors();
   Respawn_SetupCapPoints();
   Game_RegeneratePlayers();
+  Game_ResetConsumables();
 
   // Make our own round timer, if applicable.
   Respawn_CreateCapTimer();

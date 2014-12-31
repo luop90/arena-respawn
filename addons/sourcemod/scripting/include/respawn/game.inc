@@ -181,3 +181,36 @@ stock Game_PlayersInQueue() {
   return count;
 
 }
+
+/**
+ * Resets all consumable items in play.
+ *
+ * @noreturn
+ */
+stock Game_ResetConsumables() {
+
+  // Remove Sandviches from the world. (Heavy is sad.)
+  new healthpack = -1;
+  decl String:model_name[32];
+  while ((healthpack = FindEntityByClassname(healthpack, "item_healthkit_medium")) != -1) {
+
+    if (IsValidEntity(healthpack)) {
+      GetEntPropString(healthpack, Prop_Data, "m_iszModel", model_name, sizeof(model_name));
+      if (StrContains(model_name, "plate")) {
+        AcceptEntityInput(healthpack, "Kill");
+      }
+    }
+
+  }
+
+  // Undo any consumable effects (Bonk, Crit-a-Cola, etc.)
+  for (new i = 1; i <= MaxClients; i++) {
+    if (!IsValidClient(i)) continue;
+    for (new j = 0; j < sizeof(consumable_conds); j++) {
+      if (TF2_IsPlayerInCondition(i, consumable_conds[j])) {
+        TF2_RemoveCondition(i, consumable_conds[j]);
+      }
+    }
+  }
+
+}
