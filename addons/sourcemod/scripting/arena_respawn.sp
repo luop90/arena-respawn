@@ -496,10 +496,11 @@ public OnPointCaptured(Handle:event, const String:name[], bool:hide_broadcast) {
         client_mark_timer[player] = CreateTimer(2.0, Timer_Add_Mark, player, TIMER_FLAG_NO_MAPCHANGE);
       }
 
-      // If this is 1v1, overheal the capturing player.
+      // If this is a small match, overheal the capturing player.
       if (Game_CountActivePlayers() < 6) {
         new Float:health = float(Entity_GetMaxHealth(player));
         Entity_SetHealth(player, RoundToFloor(health * 1.5), true);
+        TF2_AddCondition(player, TFCond_Ubercharged, 0.75);
       }
 
       // Add the player name (team-colored) to the capture message.
