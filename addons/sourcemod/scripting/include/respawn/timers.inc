@@ -180,6 +180,36 @@ public Action:Timer_DrawHUD(Handle:timer) {
 
 }
 
+// Draws team health on the HUD.
+public Action:Timer_DrawTeamHealth(Handle:timer) {
+
+  if (!Respawn_Enabled()) return;
+
+  // If we're not in public mode, don't draw a HUD.
+  if (state != GameState_Public) {
+    return;
+  }
+
+  for (new i = 1; i <= MaxClients; i++) {
+
+    if (IsValidClient(i)) {
+
+      SetHudTextParams(0.14, 0.90, 2.0, 255, 255, 255, 255);
+
+      if (GetClientTeam(i) == _:TFTeam_Blue) {
+        ShowSyncHudText(i, team_health_hud, "BLU health: %d%%\nRED health: %d%",
+          team_health_percent[1], team_health_percent[0]);
+      } else {
+        ShowSyncHudText(i, team_health_hud, "RED health: %d%%\nBLU health: %d%",
+          team_health_percent[0], team_health_percent[1]);
+      }
+
+    }
+
+  }
+
+}
+
 // (For tournament mode) Force both teams to be ready
 public Action:Timer_ForceTeamsReady(Handle:timer) {
 
