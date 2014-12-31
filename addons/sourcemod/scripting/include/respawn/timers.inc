@@ -74,6 +74,15 @@ public Action:Timer_RespawnPlayer(Handle:timer, any:client) {
 
 }
 
+// Regenerates a player.
+public Action:Timer_RegeneratePlayer(Handle:timer, any:client) {
+
+  if (!IsValidClient(client)) { return; }
+
+  TF2_RegeneratePlayer(client);
+
+}
+
 // Forces a player to respawn, but only if they are dead.
 public Action:Timer_DMRespawnPlayer(Handle:timer, any:client) {
 

@@ -62,6 +62,9 @@ stock Player_RespawnWithEffects(player) {
     }
   }
 
+  // Schedule a regenerate (clears up discrepancies like Eyelander demos, etc).
+  CreateTimer(0.01, Timer_RegeneratePlayer, player);
+
 }
 
 /**
