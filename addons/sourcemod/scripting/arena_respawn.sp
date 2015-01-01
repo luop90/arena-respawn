@@ -96,6 +96,9 @@ new String:sound_friendly_cap[] = "mvm/mvm_revive.wav";
 // Sound that plays to players when the enemy team has respawned.
 new String:sound_enemy_cap[] = "misc/ks_tier_03_kill_01.wav";
 
+// Sound that plays to both teams when the LMS receives a critboost.
+new String:sound_lms_kill[] = "mvm/mvm_cpoint_klaxon.wav";
+
 // Storage for the last played class of each player.
 new TFClassType:client_last_class[MAXPLAYERS+1] = { TFClass_Unknown, ... };
 
@@ -224,6 +227,7 @@ public OnMapStart() {
   // Load sounds
   PrecacheSound(sound_friendly_cap);
   PrecacheSound(sound_enemy_cap);
+  PrecacheSound(sound_lms_kill);
 
 }
 
@@ -582,6 +586,14 @@ public OnPlayerDeath(Handle:event, const String:name[], bool:hide_broadcast) {
   if (critboost_time > 0.0 && Team_CountAlivePlayers(enemy_team) == 1 && Team_CountAlivePlayers(team) > 2) {
     for (new i = 1; i <= MaxClients; i++) {
       if (IsValidClient(i) && IsPlayerAlive(i) && GetClientTeam(i) == enemy_team) {
+
+        // Play a warning sound.
+        EmitSoundToAll(sound_lms_kill);
+
+        // Send a notification in chat.
+        Client_PrintToChatAll(false, "The {G}Last Man Standing{N} is crit boosted!");
+
+        // Add the critboost/minicrit effect.
         if (GetConVarInt(cvar_lms_minicrits) > 0) {
           TF2_AddCondition(i, TFCond_CritCola, critboost_time);
         } else {
@@ -591,10 +603,34 @@ public OnPlayerDeath(Handle:event, const String:name[], bool:hide_broadcast) {
     }
   }
 
-  // If this team has only one player remaining, play a special voice response.
+  // If this team has only one player remaining, print a notification and play a special voice response.
   if (Team_CountAlivePlayers(team) == 2) {
 
     Team_PlayVO(team, "Announcer.AM_LastManAlive0%d", GetRandomInt(1,4));
+
+    decl String:player_color[4];
+    decl String:player_name[32];
+    for (new i = 1; i <= MaxClients; i++) {
+      if (IsValidClient(i) && GetClientTeam(i) == team && i != victim) {
+
+        switch(team) {
+          case (_:TFTeam_Red): {
+            player_color = "{R}";
+          }
+          case (_:TFTeam_Blue): {
+            player_color = "{B}";
+          }
+          default: {
+            player_color = "{N}";
+          }
+        }
+
+        GetClientName(i, player_name, sizeof(player_name));
+        Client_PrintToChatAll(false, "%s%s{N} became the {G}Last Man Standing{N}!", player_color, player_name);
+
+        break;
+      }
+    }
 
   }
 
