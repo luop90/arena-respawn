@@ -611,7 +611,7 @@ public OnPlayerDeath(Handle:event, const String:name[], bool:hide_broadcast) {
     decl String:player_color[4];
     decl String:player_name[32];
     for (new i = 1; i <= MaxClients; i++) {
-      if (IsValidClient(i) && GetClientTeam(i) == team && i != victim) {
+      if (IsValidClient(i) && IsPlayerAlive(i) && GetClientTeam(i) == team && i != victim) {
 
         switch(team) {
           case (_:TFTeam_Red): {
