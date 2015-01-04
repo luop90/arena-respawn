@@ -474,15 +474,9 @@ public OnPointCaptured(Handle:event, const String:name[], bool:hide_broadcast) {
 
   switch(team) {
 
-    case (_:TFTeam_Red): {
-      player_color = "{R}";
-    }
-    case (_:TFTeam_Blue): {
-      player_color = "{B}";
-    }
-    default: {
-      player_color = "{N}";
-    }
+    case (_:TFTeam_Red): { player_color = "{R}"; }
+    case (_:TFTeam_Blue): { player_color = "{B}"; }
+    default: { player_color = "{N}"; }
 
   }
 
@@ -591,7 +585,11 @@ public OnPlayerDeath(Handle:event, const String:name[], bool:hide_broadcast) {
         EmitSoundToAll(sound_lms_kill);
 
         // Send a notification in chat.
-        Client_PrintToChatAll(false, "The {G}Last Man Standing{N} is crit boosted!");
+        decl String:team_name[16];
+        switch(Team_EnemyTeam(team)) { case (_:TFTeam_Red): { team_name = "{R}RED{N}"; } case (_:TFTeam_Blue): { team_name = "{B}BLU{N}"; }
+          default: { team_name = "ERROR"; }}
+
+        Client_PrintToChatAll(false, "%s's {G}Last Man Standing{N} is crit boosted!", team_name);
 
         // Add the critboost/minicrit effect.
         if (GetConVarInt(cvar_lms_minicrits) > 0) {
