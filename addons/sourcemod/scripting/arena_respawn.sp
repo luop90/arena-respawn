@@ -70,6 +70,10 @@ new bool:client_is_marked[MAXPLAYERS+1] = { false, ... };
 new Handle:client_mark_timer[MAXPLAYERS+1] = { INVALID_HANDLE, ... };
 new Handle:team_health_hud = INVALID_HANDLE;
 
+// Stats, just for fun
+new roundstat_caps[2];
+new roundstat_players_respawned[2];
+
 // Tournament variables
 new GameState:state = GameState_Public;
 new bool:team_ready[2] = { false, ... };
@@ -116,6 +120,7 @@ public OnPluginStart() {
 
   HookEvent("server_cvar", SilenceConVarChange, EventHookMode_Pre);
   HookEvent("teamplay_round_start", OnRoundStart);
+  HookEvent("teamplay_round_win", OnRoundEnd);
   HookEvent("teamplay_broadcast_audio", OnTeamAudio, EventHookMode_Pre);
   HookEvent("teamplay_point_captured", OnPointCaptured);
   HookEvent("arena_round_start", OnArenaStart);
@@ -304,6 +309,12 @@ public OnArenaStart(Handle:event, const String:name[], bool:hide_broadcast) {
   // Make our own round timer, if applicable.
   Respawn_CreateCapTimer();
 
+  // Reset per-round stats.
+  for (new i = 0; i < 2; i++) {
+    roundstat_caps[i] = 0;
+    roundstat_players_respawned[i] = 0;
+  }
+
   // Clear all MFD in case anything is lingering (if a round suddenly restarted, for example).
   for (new i = 1; i <= MaxClients; i++) {
     if (IsValidClient(i) && (GetClientTeam(i) == _:TFTeam_Red || GetClientTeam(i) == _:TFTeam_Blue)) {
@@ -380,6 +391,44 @@ public OnTeamCapture(const String:output[], caller, activator, Float:delay) {
 
   // Set the time to capture.
   CapArea_SetCaptureTime(caller, true);
+
+}
+
+// Fired at the end of a round.
+public OnRoundEnd(Handle:event, const String:name[], bool:hide_broadcast) {
+
+  if (!Respawn_Enabled()) return;
+
+  new team = GetEventInt(event, "team");
+
+  Client_PrintToChatAll(true, "{G}--- ROUND SUMMARY ---");
+
+  new String:summary[2][128] = { "[{R}RED{N}] ", "[{B}BLU{N}] " };
+  decl String:cat[64];
+
+  for (new i = 0; i < 2; i++) {
+
+    Format(cat, sizeof(cat), "Respawns: {G}%d{N} | ",
+      roundstat_players_respawned[i]);
+    StrCat(summary[i], 128, cat);
+
+    Format(cat, sizeof(cat), "Captures: {G}%d{N}",
+      roundstat_caps[i]);
+    StrCat(summary[i], 128, cat);
+
+  }
+
+  if (team == _:TFTeam_Blue) {
+    Client_PrintToChatAll(true, summary[1]);
+    Client_PrintToChatAll(true, summary[0]);
+  } else {
+    Client_PrintToChatAll(true, summary[0]);
+    Client_PrintToChatAll(true, summary[1]);
+  }
+
+  Client_PrintToChatAll(true, "[{L}ALL{N}] Respawns: {G}%d{N} | Captures: {G}%d",
+    roundstat_players_respawned[0] + roundstat_players_respawned[1],
+    roundstat_caps[0] + roundstat_caps[1]);
 
 }
 
@@ -472,6 +521,8 @@ public OnPointCaptured(Handle:event, const String:name[], bool:hide_broadcast) {
   // Determine which color to use for highlighting player names in chat.
   new team = GetEventInt(event, "team");
 
+  roundstat_caps[team - 2]++;
+
   switch(team) {
 
     case (_:TFTeam_Red): { player_color = "{R}"; }
@@ -533,6 +584,8 @@ public OnPointCaptured(Handle:event, const String:name[], bool:hide_broadcast) {
     Team_EmitSound(_:TFTeam_Spectator,  sound_friendly_cap);
     Team_EmitSound(team,                sound_friendly_cap);
     Team_EmitSound(enemy_team,          sound_enemy_cap);
+
+    roundstat_players_respawned[team - 2] += num_revived_players;
   }
 
 }
