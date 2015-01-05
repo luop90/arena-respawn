@@ -305,6 +305,7 @@ public OnArenaStart(Handle:event, const String:name[], bool:hide_broadcast) {
   Respawn_SetupCapPoints();
   Game_RegeneratePlayers();
   Game_ResetConsumables();
+  Game_ResetUberMeters();
 
   // Make our own round timer, if applicable.
   Respawn_CreateCapTimer();

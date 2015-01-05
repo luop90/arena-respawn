@@ -214,3 +214,20 @@ stock Game_ResetConsumables() {
   }
 
 }
+
+/*
+ * Resets all Uber meters to 0.
+ *
+ * @noreturn
+ */
+stock Game_ResetUberMeters() {
+
+  for (new i = 1; i <= MaxClients; i++) {
+
+    if (IsValidClient(i) && TF2_GetPlayerClass(i) == TFClass_Medic) {
+      SetEntPropFloat(GetPlayerWeaponSlot(i, 1), Prop_Send, "m_flChargeLevel", 0.0);
+    }
+
+  }
+
+}
