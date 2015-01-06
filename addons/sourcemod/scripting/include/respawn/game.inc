@@ -222,10 +222,14 @@ stock Game_ResetConsumables() {
  */
 stock Game_ResetUberMeters() {
 
+  new weapon = -1;
   for (new i = 1; i <= MaxClients; i++) {
 
     if (IsValidClient(i) && TF2_GetPlayerClass(i) == TFClass_Medic) {
-      SetEntPropFloat(GetPlayerWeaponSlot(i, 1), Prop_Send, "m_flChargeLevel", 0.0);
+      weapon = GetPlayerWeaponSlot(i, 1);
+      if (IsValidEntity(weapon)) {
+        SetEntPropFloat(GetPlayerWeaponSlot(i, 1), Prop_Send, "m_flChargeLevel", 0.0);
+      }
     }
 
   }
