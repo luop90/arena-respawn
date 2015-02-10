@@ -248,9 +248,7 @@ public OnRoundStart(Handle:event, const String:name[], bool:hide_broadcast) {
   Respawn_LockSpawnDoors();
   Respawn_ResetRoundState();
 
-  if (Game_CountCapPoints() == 1) {
-    Respawn_SetupHealthKits();
-  }
+  Respawn_SetupHealthKits();
 
   if (Game_CountCapPoints() > 1) {
     SetConVarInt(cvar_cap_enable_time, -1);
