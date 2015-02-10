@@ -550,7 +550,6 @@ stock Respawn_StartTournamentRound() {
 
   // Put ourselves in tournament mode.
   state = GameState_Tournament;
-  Client_PrintToChatAll(false, "{G}Match is live!");
   ServerCommand("exec sourcemod/respawn.tournament.cfg");
 
   // Ban the classes that are supposed to be banned.
@@ -562,6 +561,7 @@ stock Respawn_StartTournamentRound() {
 
   ServerCommand("mp_tournament 1 ; mp_tournament_restart");
 
+  CreateTimer(1.0, Timer_AnnounceLiveMatch);
   CreateTimer(1.0, Timer_ForceTeamsReady);
 
   // Begin recording (if configured to do so)

@@ -165,7 +165,7 @@ public Action:Timer_DrawHUD(Handle:timer) {
       ban = "NONE";
     } else {
       Class_GetName(team_ban[team - 2], ban, sizeof(ban));
-      ban[0] &= ~(1 << 5);
+      ban[0] &= ~(1 << 5); // Capitalize the name of the banned class
     }
 
     // Display message to all clients.
@@ -283,6 +283,21 @@ public Action:Timer_ForceTeamsReady(Handle:timer) {
   for (new i = 1; i < 32; i++) {
     GameRules_SetProp("m_bTeamReady", 1, .element=i);
   }
+
+}
+
+// (For tournament mode) Announces that a match is live after exec console spam.
+public Action:Timer_AnnounceLiveMatch(Handle:timer) {
+
+  Client_PrintToChatAll(false, "{G}Match is live!");
+
+  // Announce the class bans to the chat.
+  decl String:banned[2][16];
+  for (new i = 0; i < 2; i++) {
+    Class_GetName(team_ban[i], banned[i], 16);
+    banned[i][0] &= ~(1 << 5);
+  }
+  Client_PrintToChatAll(true, "{G}%s{N} and {G}%s{N} are banned.", banned[0], banned[1]);
 
 }
 
