@@ -389,7 +389,7 @@ stock Respawn_UnlockSpawnDoors() {
 }
 
 /**
- * Decreases health pickups on KOTH maps.
+ * Decreases health pickups on non-Arena maps.
  *
  * @noreturn
  */
@@ -407,9 +407,9 @@ stock Respawn_SetupHealthKits() {
   Game_AveragePlayerSpawn(_:TFTeam_Red, red_spawn);
   Game_AveragePlayerSpawn(_:TFTeam_Blue, blu_spawn);
 
-  // If this isn't a KOTH map, assume the mapper knew what they were doing and
+  // If this is an Arena map, assume the mapper knew what they were doing and
   // leave it alone.
-  if (strncmp(map_name, "koth_", 5) == 0) {
+  if (strncmp(map_name, "arena_", 6) != 0) {
 
     // If a large healthkit is present, downgrade all healthkits by a factor of one.
     if (Game_CountEntities("item_healthkit_full") > 0) {
