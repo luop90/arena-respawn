@@ -17,7 +17,7 @@
 
 #pragma semicolon 1
 
-#define PLUGIN_VERSION "1.2.2"
+#define PLUGIN_VERSION "1.2.3-beta"
 
 #include <sourcemod>
 #include <sdktools>
@@ -62,12 +62,14 @@ new Handle:cvar_autorecord            = INVALID_HANDLE;
 
 new cap_owner = 0;
 new mid_index = 2;
+new flag_boosted_player = -1;
 new num_revived_players = 0;
 new team_health_percent[2] = { 0, ... };
 new Float:last_cap_time = 0.0;
 new Float:last_round_ended = 0.0;
 new bool:client_on_point[MAXPLAYERS+1] = { false, ... };
 new bool:client_is_marked[MAXPLAYERS+1] = { false, ... };
+new bool:flag_dropped_this_frame = false;
 new Handle:client_mark_timer[MAXPLAYERS+1] = { INVALID_HANDLE, ... };
 new Handle:team_health_hud = INVALID_HANDLE;
 
@@ -118,12 +120,15 @@ public OnPluginStart() {
   HookEntityOutput("trigger_capture_area", "OnCapTeam2", OnTeamCapture);
   HookEntityOutput("trigger_capture_area", "OnStartTouch", OnPointTouch);
   HookEntityOutput("trigger_capture_area", "OnEndTouch", OnPointTouch);
+  HookEntityOutput("item_teamflag", "OnPickupTeam1", OnFlagPickup);
+  HookEntityOutput("item_teamflag", "OnPickupTeam2", OnFlagPickup);
 
   HookEvent("server_cvar", SilenceConVarChange, EventHookMode_Pre);
   HookEvent("teamplay_round_start", OnRoundStart);
   HookEvent("teamplay_round_win", OnRoundEnd);
   HookEvent("teamplay_broadcast_audio", OnTeamAudio, EventHookMode_Pre);
   HookEvent("teamplay_point_captured", OnPointCaptured);
+  HookEvent("teamplay_flag_event", OnFlagEvent);
   HookEvent("arena_round_start", OnArenaStart);
   HookEvent("player_death", OnPlayerDeath);
   HookEvent("teamplay_game_over", OnGameOver);
@@ -222,6 +227,13 @@ public OnMapEnd() {
 
 }
 
+// Fired every frame (keep this light!)
+public OnGameFrame() {
+
+  flag_dropped_this_frame = false;
+
+}
+
 // Fired when a client connects to the server.
 public OnClientPostAdminCheck(client) {
 
@@ -249,6 +261,9 @@ public OnRoundStart(Handle:event, const String:name[], bool:hide_broadcast) {
   Respawn_ResetRoundState();
 
   Respawn_SetupHealthKits();
+
+  Respawn_SetupFlags();
+  Respawn_SetupFlagTimer();
 
   if (Game_CountCapPoints() > 1) {
     SetConVarInt(cvar_cap_enable_time, -1);
@@ -394,6 +409,104 @@ public OnRoundEnd(Handle:event, const String:name[], bool:hide_broadcast) {
   Client_PrintToChatAll(true, "[{L}ALL{N}] Respawns: {G}%d{N} | Captures: {G}%d",
     roundstat_players_respawned[0] + roundstat_players_respawned[1],
     roundstat_caps[0] + roundstat_caps[1]);
+
+}
+
+// Fired by a team picking up the intelligence.
+public OnFlagPickup(const String:output[], caller, activator, Float:delay) {
+
+  new player = GetEntPropEnt(caller, Prop_Data, "m_hOwnerEntity");
+
+  if (!IsValidClient(player)) return;
+
+  new team = GetClientTeam(player);
+  new num_respawned = Team_RespawnWithEffects(team);
+
+  roundstat_caps[team - 2]++;
+
+  if (num_respawned < 1) return;
+
+  decl String:player_color[3];
+  switch(team) {
+    case (_:TFTeam_Red): { player_color = "{R}"; }
+    case (_:TFTeam_Blue): { player_color = "{B}"; }
+    default: { player_color = "{N}"; }
+  }
+
+  decl String:player_name[64];
+  GetClientName(player, player_name, sizeof(player_name));
+
+  Client_PrintToChatAll(false, "%s%s{N} revived %d players!",
+    player_color, player_name, num_respawned);
+
+}
+
+// Fired by the item_teamflag being dropped.
+public OnFlagDrop(const String:output[], caller, activator, Float:delay) {
+
+  flag_dropped_this_frame = true;
+
+}
+
+// Fired by the item_teamflag returning to mid.
+public OnFlagReturn(const String:output[], caller, activator, Float:delay) {
+
+  if (!Respawn_Enabled()) return;
+
+  //if (flag_dropped_this_frame) cap_owner = -1;
+  if (flag_dropped_this_frame) {
+    cap_owner = -1;
+    Log("Flag dropped and returned in the same frame - nobody gets a point!");
+  }
+
+  if (cap_owner < _:TFTeam_Red) return;
+
+  // Find the tf_team that defended the flag and add to their score.
+  new tf_team = -1;
+  new caps;
+  while ((tf_team = FindEntityByClassname(tf_team, "tf_team"))) {
+    if (GetEntProp(tf_team, Prop_Send, "m_iTeamNum") == cap_owner) {
+      caps = GetEntProp(tf_team, Prop_Send, "m_nFlagCaptures");
+      SetEntProp(tf_team, Prop_Send, "m_nFlagCaptures", ++caps);
+      break;
+    }
+  }
+
+  if (caps >= GetConVarInt(FindConVar("tf_flag_caps_per_round"))) {
+    cap_owner = -1;
+    return;
+  }
+
+  // Overheal anyone on the defending team that is still alive.
+  for (new i = 1; i <= MaxClients; i++) {
+
+    if (IsValidClient(i) && IsPlayerAlive(i) && GetClientTeam(i) == cap_owner) {
+
+      new Float:health = float(Entity_GetMaxHealth(i));
+      Entity_SetHealth(i, RoundToFloor(health * 1.5), true);
+      TF2_AddCondition(i, TFCond_Ubercharged, 0.75);
+    }
+
+  }
+
+  // Respawn both teams.
+  Team_RespawnWithEffects(cap_owner, true);
+  Team_RespawnWithEffects(Team_EnemyTeam(cap_owner), true);
+  EmitSoundToAll(sound_friendly_cap);
+
+  // Announce that a new heist has begun!
+  decl String:team_name[8];
+  switch(cap_owner) {
+
+    case (_:TFTeam_Red): { team_name = "{R}RED"; }
+    case (_:TFTeam_Blue): { team_name = "{B}BLU"; }
+    default: { team_name = "ERROR"; }
+
+   }
+
+  Client_PrintToChatAll(true, "%s{N} successfully heisted the intel! {G}A new heist has begun!", team_name);
+
+  cap_owner = -1;
 
 }
 
@@ -543,6 +656,34 @@ public OnPointCaptured(Handle:event, const String:name[], bool:hide_broadcast) {
   // Only announce if at least one player was respawned.
   if (num_revived_players > 0) {
     Client_PrintToChatAll(false, cap_message);
+  }
+
+}
+
+// Fired by a player interacting with the flag.
+public OnFlagEvent(Handle:event, const String:name[], bool:hide_broadcast) {
+
+  if (!Respawn_Enabled()) return;
+
+  new flagevent = GetEventInt(event, "eventtype");
+  new player = GetEventInt(event, "player");
+
+  // If a player has dropped the flag and was Conch boosted, remove the boost.
+  if (flagevent == TF_FLAGEVENT_DROPPED && IsValidClient(flag_boosted_player)
+      && flag_boosted_player == player) {
+
+    flag_boosted_player = -1;
+    TF2_RemoveCondition(player, TFCond_RegenBuffed);
+
+  // Add a Conch boost to the flag owner only if there are enough players to warrant it
+  } else if (flagevent == TF_FLAGEVENT_PICKEDUP) {
+
+    cap_owner = GetClientTeam(player);
+
+    if (Game_CountActivePlayers() >= 6) {
+      flag_boosted_player = player;
+      TF2_AddCondition(player, TFCond_RegenBuffed);
+    }
 
   }
 

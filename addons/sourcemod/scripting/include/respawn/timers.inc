@@ -199,6 +199,40 @@ public Action:Timer_DrawTeamHealth(Handle:timer) {
     return;
   }
 
+  // If this is CTF mode, draw the intel carrier's health instead.
+  new flag = FindEntityByClassname(-1, "item_teamflag");
+  if (flag > -1) {
+    new owner = GetEntPropEnt(flag, Prop_Data, "m_hOwnerEntity");
+
+    if (IsValidClient(owner)) {
+      new health = Entity_GetHealth(owner);
+      new max_health = Entity_GetMaxHealth(owner);
+
+      new Float:health_per = float(health) / float(max_health);
+
+      new red = RoundToCeil((255.0 * 4.0) * (0.75 - health_per));
+      if (red > 255) red = 255;
+      if (red < 0)   red = 0;
+
+      new green = RoundToCeil((255.0 * 4.0) * (health_per - 0.25));
+      if (green > 255) green = 255;
+      if (green < 0)   green = 0;
+
+      for (new i = 1; i <= MaxClients; i++) {
+
+        if (!IsValidClient(i)) continue;
+
+        SetHudTextParams(0.14, 0.90, 2.0, red, green, 0, 255);
+        ShowSyncHudText(i, team_health_hud, "Flag carrier: %d/%d",
+          health, max_health);
+
+      }
+    }
+
+    return;
+  }
+
+  // Otherwise, draw both teams' health.
   new team_health[2];
   new team_health_max[2];
   new team;

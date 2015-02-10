@@ -823,3 +823,185 @@ stock Respawn_SetupCapPoints_FiveCp() {
   }
 
 }
+
+/**
+ * Creates a team_round_timer responsible for keeping track of how long the flag has been held.
+ * When the timer ends, force the flag to drop regardless of the player currently carrying it.
+ *
+ * @noreturn
+ */
+stock Respawn_SetupFlagTimer() {
+
+
+  new timer = Entity_FindByName("flagtimer", "team_round_timer");
+  if (timer > 0) {
+    Log("flagtimer already exists; refusing to re-create.");
+    return;
+  }
+
+  timer = CreateEntityByName("team_round_timer");
+  if (timer < 0) {
+    Log("Failed to create team_round_timer!");
+    return;
+  }
+
+  DispatchKeyValue(timer, "targetname", "flagtimer");
+  DispatchKeyValue(timer, "StartDisabled", "1");
+  DispatchKeyValue(timer, "show_in_hud", "1");
+  DispatchKeyValue(timer, "start_paused", "0");
+  DispatchKeyValue(timer, "auto_countdown", "0");
+  DispatchKeyValue(timer, "timer_length", "10");
+
+  DispatchSpawn(timer);
+
+  Entity_AddOutput(timer, "OnFinished respawnflag:ForceDrop::0:-1");
+
+}
+
+/**
+ * Sets up an item team_flag at the coordinates given by an info_target with the targetname "flagpos".
+ * If there is no info_target specified, attempt (poorly, and with great inaccuracy) to place a flag
+ * at the midpoint of the map.
+ *
+ * info_targets should be preconfigured in Stripper: Source for this to function properly.
+ *
+ * @noreturn
+ */
+stock Respawn_SetupFlags() {
+
+  if (!Respawn_Enabled()) return;
+
+  if (FindEntityByClassname(-1, "item_teamflag") > 0) {
+    Log("Flag found; refusing to spawn another one.");
+    return;
+  }
+
+  // If this map has an info_target called 'flagpos', spawn a flag there.
+  new bool:flag_spawned = false;
+  new flag = -1;
+  new flag_index = -1;
+  new target = -1;
+  decl Float:pos[3];
+  decl Float:flag_pos[2][3];
+  decl String:name[64];
+
+  while ((target = FindEntityByClassname(target, "info_target")) != -1) {
+    Entity_GetName(target, name, sizeof(name));
+    if (StrEqual(name, "flagpos")) {
+
+      Entity_GetTrueAbsOrigin(target, pos);
+
+      Respawn_SpawnFlag(pos);
+
+      flag_spawned = true;
+
+    } else if (StrEqual(name, "team_flagpos")) {
+
+      flag_index++;
+      if (flag_index > 1) { Log("Found a flag out of expected bounds: %d", flag_index); continue; }
+      Entity_GetTrueAbsOrigin(target, flag_pos[flag_index]);
+
+      new healthkit = CreateEntityByName("item_healthkit_full");
+      DispatchKeyValueVector(healthkit, "origin", flag_pos[flag_index]);
+      DispatchSpawn(healthkit);
+
+    }
+  }
+
+  // If no flag has spawned, attempt to spawn one in the middle of the map.
+
+  if (flag_index < 1 || flag_spawned) return;
+
+  new Float:mid_x = (flag_pos[0][0] + flag_pos[1][0]) / 2.0;
+  new Float:mid_y = (flag_pos[0][1] + flag_pos[1][1]) / 2.0;
+
+  Log("Flag midpoint: %f, %f", mid_x, mid_y);
+
+  pos[0] = mid_x;
+  pos[1] = mid_y;
+  pos[2] = 16384.0;
+  new Float:vec[3];
+  vec[0] = mid_x;
+  vec[1] = mid_y;
+  vec[2] = -pos[2];
+
+  TR_TraceRay(pos, vec, MASK_ALL, RayType_EndPoint);
+
+  // FIRST HIT: The top of the skybox (or other surrounding brush).
+  if (TR_DidHit()) {
+
+    decl Float:hitpos[3];
+    TR_GetEndPosition(hitpos);
+    hitpos[2] = hitpos[2] - 1.0;
+
+    TR_TraceRay(hitpos, vec, MASK_ALL, RayType_EndPoint);
+
+    // SECOND HIT: The world under the skybox.
+    if (TR_DidHit()) {
+
+      TR_GetEndPosition(hitpos);
+
+      flag = CreateEntityByName("item_teamflag");
+      DispatchKeyValueVector(flag, "origin", hitpos);
+
+      DispatchSpawn(flag);
+      Log("Spawned item_teamflag at %f %f %f", hitpos[0], hitpos[1], hitpos[2]);
+
+      return;
+
+    }
+
+  }
+
+  Log("Did not find a place to spawn an item_teamflag.");
+
+}
+
+/**
+ * Creates an item_teamflag with the following properties:
+ * - Neutral skin upon spawn and drop
+ * - Starts the flagtimer team_round_timer when picked up
+ * - Drop/Return outputs hook the special OnFlagDrop and OnFlagReturn methods
+ *
+ * @noreturn
+ */
+stock Respawn_SpawnFlag(Float:pos[3]) {
+
+  new logic = FindEntityByClassname(-1, "tf_logic_arena");
+
+  new flag = CreateEntityByName("item_teamflag");
+  DispatchKeyValueVector(flag, "origin", pos);
+
+  DispatchKeyValue(flag, "targetname", "respawnflag");
+  DispatchKeyValue(flag, "skin", "2");
+  DispatchKeyValue(flag, "ReturnTime", "50");
+  DispatchKeyValue(flag, "VisibleWhenDisabled", "1");
+
+  Entity_AddOutput(flag, "OnPickupTeam1 !self:SetTeam:2:0:-1");
+  Entity_AddOutput(flag, "OnPickupTeam1 !self:skin:0:0:-1");
+  Entity_AddOutput(flag, "OnPickupTeam2 !self:SetTeam:3:0:-1");
+  Entity_AddOutput(flag, "OnPickupTeam2 !self:skin:1:0:-1");
+
+  Entity_AddOutput(flag, "OnPickup flagtimer:Enable::0:-1");
+  Entity_AddOutput(flag, "OnPickup flagtimer:Restart::0:-1");
+  Entity_AddOutput(flag, "OnPickup flagtimer:ShowInHUD:1:0:-1");
+
+  Entity_AddOutput(flag, "OnDrop !self:skin:2:0:-1");
+  Entity_AddOutput(flag, "OnDrop flagtimer:Disable::0:-1");
+  Entity_AddOutput(flag, "OnDrop flagtimer:Restart::0:-1");
+  Entity_AddOutput(flag, "OnDrop flagtimer:ShowInHUD:0:0:-1");
+
+  Entity_AddOutput(flag, "OnReturn !self:SetTeam:0:0:-1");
+  Entity_AddOutput(flag, "OnReturn !self:skin:2:0:-1");
+
+  if (logic > -1) {
+    DispatchKeyValue(flag, "StartDisabled", "1");
+    Entity_AddOutput(logic, "OnCapEnabled respawnflag:Enable::0:-1");
+  }
+
+  HookSingleEntityOutput(flag, "OnDrop", OnFlagDrop);
+  HookSingleEntityOutput(flag, "OnReturn", OnFlagReturn);
+
+  DispatchSpawn(flag);
+
+}
