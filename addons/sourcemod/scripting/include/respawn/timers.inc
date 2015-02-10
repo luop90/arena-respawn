@@ -279,6 +279,13 @@ public Action:Timer_CheckTeams(Handle:timer) {
     return;
   }
 
+  // Finally, if we're less than 5 seconds into a new round, do nothing.
+  // This is to avoid conflicting with the Arena balance logic.
+  if (GetGameTime() < (last_round_ended +
+      GetConVarInt(FindConVar("mp_bonusroundtime")) + 5.0)) {
+    return;
+  }
+
   // Otherwise, check the number of players on either team.
   new players_to_add = 0;
   new team = _:TFTeam_Unassigned;

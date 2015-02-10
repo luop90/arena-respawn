@@ -65,6 +65,7 @@ new mid_index = 2;
 new num_revived_players = 0;
 new team_health_percent[2] = { 0, ... };
 new Float:last_cap_time = 0.0;
+new Float:last_round_ended = 0.0;
 new bool:client_on_point[MAXPLAYERS+1] = { false, ... };
 new bool:client_is_marked[MAXPLAYERS+1] = { false, ... };
 new Handle:client_mark_timer[MAXPLAYERS+1] = { INVALID_HANDLE, ... };
@@ -199,6 +200,7 @@ public OnConfigsExecuted() {
 public OnMapStart() {
 
   mid_index = 2;
+  last_round_ended = 0.0;
 
   // Load sounds
   PrecacheSound(sound_friendly_cap);
@@ -370,6 +372,8 @@ public OnTeamCapture(const String:output[], caller, activator, Float:delay) {
 public OnRoundEnd(Handle:event, const String:name[], bool:hide_broadcast) {
 
   if (!Respawn_Enabled()) return;
+
+  last_round_ended = GetGameTime();
 
   new team = GetEventInt(event, "team");
 
