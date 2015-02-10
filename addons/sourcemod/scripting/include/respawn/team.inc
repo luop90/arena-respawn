@@ -151,3 +151,36 @@ stock Team_CountAlivePlayers(team) {
    return count;
 
  }
+
+/**
+ * Respawns the dead members of a team.
+ *
+ * @param team
+ * @param silent
+ * @return
+ */
+stock Team_RespawnWithEffects(team, silent = false) {
+
+  num_revived_players = 0;
+  for (new i = 1; i <= MaxClients ; i++) {
+    if (IsValidClient(i)) {
+      if (IsClientObserver(i) && GetClientTeam(i) == team) {
+        Player_RespawnWithEffects(i);
+        num_revived_players++;
+      }
+    }
+  }
+
+  if (num_revived_players > 0 && !silent) {
+    new enemy_team = Team_EnemyTeam(team);
+    Team_EmitSound(_:TFTeam_Unassigned, sound_friendly_cap);
+    Team_EmitSound(_:TFTeam_Spectator,  sound_friendly_cap);
+    Team_EmitSound(team,                sound_friendly_cap);
+    Team_EmitSound(enemy_team,          sound_enemy_cap);
+
+    roundstat_players_respawned[team - 2] += num_revived_players;
+  }
+
+  return num_revived_players;
+
+}

@@ -333,16 +333,7 @@ public OnTeamCapture(const String:output[], caller, activator, Float:delay) {
   if (Game_CountCapPoints() > 1 || cap_owner != team) {
     Log("Point captured by team #%d", team);
     cap_owner = team;
-
-    num_revived_players = 0;
-    for (new i = 1; i <= MaxClients ; i++) {
-      if (IsValidClient(i)) {
-        if (IsClientObserver(i) && GetClientTeam(i) == team) {
-          Player_RespawnWithEffects(i);
-          num_revived_players++;
-        }
-      }
-    }
+    Team_RespawnWithEffects(team);
   } else {
     Log("Point re-captured by team #%d", team);
 
@@ -551,17 +542,10 @@ public OnPointCaptured(Handle:event, const String:name[], bool:hide_broadcast) {
 
   StrCat(cap_message, sizeof(cap_message), revived_message);
 
-  // Only announce and play sounds if at least one player was respawned.
+  // Only announce if at least one player was respawned.
   if (num_revived_players > 0) {
     Client_PrintToChatAll(false, cap_message);
 
-    new enemy_team = Team_EnemyTeam(team);
-    Team_EmitSound(_:TFTeam_Unassigned, sound_friendly_cap);
-    Team_EmitSound(_:TFTeam_Spectator,  sound_friendly_cap);
-    Team_EmitSound(team,                sound_friendly_cap);
-    Team_EmitSound(enemy_team,          sound_enemy_cap);
-
-    roundstat_players_respawned[team - 2] += num_revived_players;
   }
 
 }
