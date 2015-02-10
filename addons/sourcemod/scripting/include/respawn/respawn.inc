@@ -212,7 +212,7 @@ stock Respawn_SetupCapPoints() {
 stock Respawn_CreateCapTimer() {
 
   // Games without a defined midpoint do not need a timer.
-  if (Game_CountCapPoints() > 1 && Game_CountCapPoints() < 5) {
+  if (Game_CountCapPoints() != 1) {
     return;
   }
 
@@ -248,6 +248,9 @@ stock Respawn_CreateCapTimer() {
   } else {
     cap_point = FindEntityByClassname(cap_point, "team_control_point");
   }
+
+  if (cap_point < 0) return;
+
   new String:cap_point_name[64];
   Entity_GetName(cap_point, cap_point_name, sizeof(cap_point_name));
 
