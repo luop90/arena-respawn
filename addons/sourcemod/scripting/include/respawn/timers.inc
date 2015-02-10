@@ -199,6 +199,30 @@ public Action:Timer_DrawTeamHealth(Handle:timer) {
     return;
   }
 
+  new team_health[2];
+  new team_health_max[2];
+  new team;
+
+  for (new i = 1; i <= MaxClients; i++) {
+
+    if (IsValidClient(i)) {
+      team = GetClientTeam(i);
+      if (team > 1) {
+        team_health[team - 2] += Entity_GetHealth(i);
+        team_health_max[team - 2] += Entity_GetMaxHealth(i);
+      }
+    }
+
+  }
+
+  for (new i = 0; i < 2; i++) {
+    if (team_health_max[i] <= 0) {
+      team_health_percent[i] = 0;
+    } else {
+      team_health_percent[i] = RoundToFloor((float(team_health[i]) / float(team_health_max[i])) * 100.0);
+    }
+  }
+
   for (new i = 1; i <= MaxClients; i++) {
 
     if (IsValidClient(i)) {
