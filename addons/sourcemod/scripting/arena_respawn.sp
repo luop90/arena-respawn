@@ -28,7 +28,7 @@
 public Plugin:myinfo = {
 
   name        = "Arena: Respawn",
-  author      = "awk",
+  author      = "awk, edits by Luop90",
   description = "A gamemode that gives Arena second chances.",
   version     = PLUGIN_VERSION,
   url         = "http://steam.respawn.tf/"
@@ -59,6 +59,10 @@ new Handle:cvar_lms_critboost         = INVALID_HANDLE;
 new Handle:cvar_lms_minicrits         = INVALID_HANDLE;
 new Handle:cvar_logging               = INVALID_HANDLE;
 new Handle:cvar_autorecord            = INVALID_HANDLE;
+
+// Added cvar to verify its the TF2Center one.
+new Handle:cvar_TF2C;
+new Handle:cvar_TF2C_version;
 
 new cap_owner = 0;
 new mid_index = 2;
@@ -174,9 +178,12 @@ public OnPluginStart() {
   cvar_autorecord = CreateConVar("ars_autorecord", "0",
     "Set to 1 to automatically record tournaments (SourceTV must be enabled).");
 
+  cvar_TF2C = CreateConVar("tf2c_ars", "1", "Do not change this. Allows TF2C to identify the plugin.");
+
   for (new i = 0; i < 2; i++) {
     hud[i] = CreateHudSynchronizer();
   }
+
   hud_middle = CreateHudSynchronizer();
   CreateTimer(2.0, Timer_DrawHUD, _, TIMER_REPEAT);
   CreateTimer(1.0, Timer_RespawnDeadPlayers, _, TIMER_REPEAT);
@@ -926,6 +933,7 @@ public Action:Command_TeamUnReady(client, args) {
 }
 
 // Player command - sets team class ban.
+// Edits my Luop here.
 public Action:Command_TeamBan(client, args) {
 
   if (!Respawn_Enabled()) return Plugin_Handled;
@@ -954,8 +962,11 @@ public Action:Command_TeamBan(client, args) {
   } else if (class == team_ban[Team_EnemyTeam(team) - 2]) {
     Client_PrintToChat(client, true, "{G}That class is already banned!");
     return Plugin_Handled;
+  } else if (class == TFClass_Medic){
+    Client_PrintToChat(client, true, "{G}Medic is not allowed to be banned!");
+    return Plugin_Handled;
   }
-  
+
   if (IsValidClient(client) && team > _:TFTeam_Spectator) {
     team_ban[team - 2] = class;
   }
